@@ -2,7 +2,6 @@ apiVersion: operator.vilaverde.rocks/v1alpha1
 kind: CounterMeasure
 metadata:
   name: clean-tmp
-  namespace: default
 spec:
   prometheus:
     expr: ALERTS{alertname="CPUThrottlingHigh", alertstate="pending", severity="info", pod="node-exporter-nrhwl"} == 1

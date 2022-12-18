@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -35,6 +36,8 @@ import (
 	"github.com/dvilaverde/k8s-countermeasures/controllers"
 	//+kubebuilder:scaffold:imports
 )
+
+const watchNamespaceEnvVar = "WATCH_NAMESPACE"
 
 var (
 	scheme   = runtime.NewScheme()
@@ -75,11 +78,18 @@ func main() {
 	// 	}
 	// }
 
+	watchNamespace, err := getWatchNamespace()
+	if err != nil {
+		setupLog.Error(err, `unable to get WatchNamespace, 
+			the manager will watch and manage resources in all namespaces`)
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
+		Namespace:              watchNamespace,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "b444787d.vilaverde.rocks",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
@@ -118,8 +128,17 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
+	setupLog.Info(fmt.Sprintf("monitoring namespaces: %s", watchNamespace))
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func getWatchNamespace() (string, error) {
+	ns, found := os.LookupEnv(watchNamespaceEnvVar)
+	if !found {
+		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
+	}
+	return ns, nil
 }
