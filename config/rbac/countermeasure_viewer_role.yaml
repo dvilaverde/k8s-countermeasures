@@ -1,0 +1,27 @@
+# permissions for end users to view countermeasures.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: countermeasure-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: k8s-countermeasures
+    app.kubernetes.io/part-of: k8s-countermeasures
+    app.kubernetes.io/managed-by: kustomize
+  name: countermeasure-viewer-role
+rules:
+- apiGroups:
+  - operator.vilaverde.rocks
+  resources:
+  - countermeasures
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operator.vilaverde.rocks
+  resources:
+  - countermeasures/status
+  verbs:
+  - get
