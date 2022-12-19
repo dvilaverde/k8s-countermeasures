@@ -4,11 +4,13 @@ metadata:
   name: clean-tmp
 spec:
   prometheus:
-    expr: ALERTS{alertname="CPUThrottlingHigh", alertstate="pending", severity="info", pod="node-exporter-nrhwl"} == 1
-    interval: 15s
     service:
       name: prometheus-operated
       namespace: monitoring
+    interval: 15s
+    alert:
+      name: CPUThrottlingHigh
+      includePending: true
   actions:
   - name: foo
     command: ["rm", "-Rf", "/tmp"]

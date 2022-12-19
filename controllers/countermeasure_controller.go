@@ -79,6 +79,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, utilerrors.NewAggregate([]error{err, r.Status().Update(ctx, operatorCR)})
 	}
 
+	// TODO: if a Job is created, make sure this is called so there will be an owner relationship
 	// ctrl.SetControllerReference(operatorCR, newResource, r.Scheme)
 	logger.Info("Doing some reconciling here, check for prom metrics??", "name", req.Name, "namespace", req.Namespace)
 

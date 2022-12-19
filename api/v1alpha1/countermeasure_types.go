@@ -27,15 +27,25 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// PrometheusMonitor definition of a monitor for a prometheus service in the K8s cluster
-type PrometheusMonitor struct {
-	Expression string                 `json:"expr"`
-	Service    corev1.ObjectReference `json:"service"`
-	Interval   metav1.Duration        `json:"interval,omitempty"`
+// Prometheus definition of a monitor for a prometheus service in the K8s cluster
+type PrometheusSpec struct {
+	Service  corev1.ObjectReference `json:"service"`
+	Interval metav1.Duration        `json:"interval,omitempty"`
 	// TODO: support auth (basic and TLS) using secret ref
 	// TODO: need a way to get the instance from the result of the expression,
 	// 			maybe a resourceLabel property
+
+	Alert *PrometheusAlertSpec `json:"alert,omitempty"`
 }
+
+// PrometheusAlertSpec definition of a monitored prometheus alert
+type PrometheusAlertSpec struct {
+	AlertName      string `json:"name"`
+	IncludePending bool   `json:"includePending,omitempty"`
+}
+
+// CommandSpec command and arguments to execute in a container
+type CommandSpec []string
 
 // Operation a RFC 6902 patch operation
 type Operation struct {
@@ -45,18 +55,25 @@ type Operation struct {
 	Value json.RawMessage `json:"value,omitempty"`
 }
 
-// Patch defines a patch operation on an existing Custom Resource
-type Patch struct {
-	Target    corev1.ObjectReference `json:"target"`
-	Operation []Operation            `json:"operations"`
+// PatchSpec defines a patch operation on an existing Custom Resource
+type PatchSpec struct {
+	// +kubebuilder:validation:Optional
+	Target corev1.ObjectReference `json:"target"`
+	// +kubebuilder:validation:Optional
+	Operation []Operation `json:"operations"`
 }
 
 // Action defines an action to be taken when the monitor detects a condition that needs attention.
 type Action struct {
-	Name    string          `json:"name"`
-	Command []string        `json:"command,omitempty"`
-	JobSpec batchv1.JobSpec `json:"job,omitempty"`
-	Patch   Patch           `json:"patch,omitempty"`
+	Name string `json:"name"`
+	// +kubebuilder:validation:Optional
+	Command CommandSpec `json:"command,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	JobSpec *batchv1.JobTemplateSpec `json:"job,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Patch *PatchSpec `json:"patch,omitempty"`
 }
 
 // CounterMeasureSpec defines the desired state of CounterMeasure
@@ -64,8 +81,8 @@ type CounterMeasureSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Prometheus PrometheusMonitor `json:"prometheus,omitempty"`
-	Actions    []Action          `json:"actions"`
+	Prometheus PrometheusSpec `json:"prometheus,omitempty"`
+	Actions    []Action       `json:"actions"`
 }
 
 // CounterMeasureStatus defines the observed state of CounterMeasure
@@ -73,13 +90,23 @@ type CounterMeasureStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	LastObservation LastObservationType `json:"lastObservation"`
+
 	Conditions []metav1.Condition `json:"conditions"`
 }
+
+type LastObservationType string
+
+const (
+	Monitoring   LastObservationType = "Monitoring"
+	TakingAction LastObservationType = "Taking Action"
+)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
 // CounterMeasure is the Schema for the countermeasures API
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.lastObservation`
 type CounterMeasure struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
