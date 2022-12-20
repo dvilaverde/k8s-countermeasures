@@ -27,10 +27,27 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type ServiceReference struct {
+	// `namespace` is the namespace of the service.
+	Namespace string `json:"namespace"`
+	// `name` is the name of the service.
+	Name string `json:"name"`
+	// `path` is an optional URL path which will be sent in any request to
+	// this service.
+	// +optional
+	Path *string `json:"path,omitempty"`
+	// `port` should be a valid port number (1-65535, inclusive).
+	// +optional
+	Port int32 `json:"port,omitempty"`
+	// `targetPort` should be a valid name of a port in the target service.
+	// +optional
+	TargetPort string `json:"targetPort,omitempty"`
+}
+
 // Prometheus definition of a monitor for a prometheus service in the K8s cluster
 type PrometheusSpec struct {
-	Service  corev1.ObjectReference `json:"service"`
-	Interval metav1.Duration        `json:"interval,omitempty"`
+	Service  *ServiceReference `json:"service"`
+	Interval metav1.Duration   `json:"interval,omitempty"`
 	// TODO: support auth (basic and TLS) using secret ref
 	// TODO: need a way to get the instance from the result of the expression,
 	// 			maybe a resourceLabel property
@@ -57,10 +74,8 @@ type Operation struct {
 
 // PatchSpec defines a patch operation on an existing Custom Resource
 type PatchSpec struct {
-	// +kubebuilder:validation:Optional
-	Target corev1.ObjectReference `json:"target"`
-	// +kubebuilder:validation:Optional
-	Operation []Operation `json:"operations"`
+	Target    corev1.ObjectReference `json:"target"`
+	Operation []Operation            `json:"operations"`
 }
 
 // Action defines an action to be taken when the monitor detects a condition that needs attention.

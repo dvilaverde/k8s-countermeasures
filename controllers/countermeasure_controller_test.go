@@ -8,7 +8,6 @@ import (
 	cmv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -40,7 +39,7 @@ var _ = Describe("CounterMeasures controller", func() {
 				},
 				Spec: cmv1alpha1.CounterMeasureSpec{
 					Prometheus: cmv1alpha1.PrometheusSpec{
-						Service: corev1.ObjectReference{
+						Service: &cmv1alpha1.ServiceReference{
 							Name:      "prom-operated",
 							Namespace: "monitoring",
 						},
@@ -82,7 +81,7 @@ var _ = Describe("CounterMeasures controller", func() {
 					return false, err
 				}
 				return createdCounterMeasure.Status.LastObservationTime.IsZero(), nil
-			}, duration, interval).Should(Equal(false))
+			}, duration, interval).Should(Equal(true))
 
 			// Lets wait for the Last Observation time to be set by the controller
 

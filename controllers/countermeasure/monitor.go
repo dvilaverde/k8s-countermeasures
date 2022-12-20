@@ -54,7 +54,7 @@ func (c *CounterMeasureMonitor) Start(ctx context.Context) error {
 	log.Info("Starting monitor workers")
 	// Launch two workers to process Foo resources
 	for i := 0; i < c.workers; i++ {
-		go wait.Until(c.runWorker, time.Second, c.shutdownCh)
+		go wait.Until(c.runWorker, time.Second, ctx.Done())
 	}
 
 	log.Info("Started monitor workers")
