@@ -8,6 +8,7 @@ import (
 	cmv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -17,7 +18,7 @@ var _ = Describe("CounterMeasures controller", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
 		CounterMeasureName      = "test-countermeasure"
-		CounterMeasureNamespace = "default"
+		CounterMeasureNamespace = CounterMeasureName
 
 		timeout  = time.Second * 10
 		duration = time.Second * 10
@@ -25,6 +26,28 @@ var _ = Describe("CounterMeasures controller", func() {
 	)
 
 	Context("When Deploying a CounterMeasure", func() {
+
+		namespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      CounterMeasureName,
+				Namespace: CounterMeasureName,
+			},
+		}
+
+		BeforeEach(func() {
+			By("Creating the Namespace to perform the tests")
+			err := k8sClient.Create(ctx, namespace)
+			Expect(err).To(Not(HaveOccurred()))
+		})
+
+		AfterEach(func() {
+			// Attention if you improve this code by adding other context test you MUST
+			// be aware of the current delete namespace limitations.
+			// More info: https://book.kubebuilder.io/reference/envtest.html#testing-considerations
+			By("Deleting the Namespace to perform the tests")
+			_ = k8sClient.Delete(ctx, namespace)
+		})
+
 		It("Should set CounterMeasure Status.LastObervation Healthy when counter measure is created", func() {
 			By("By creating a new CounterMeasure")
 			ctx := context.Background()
@@ -38,7 +61,7 @@ var _ = Describe("CounterMeasures controller", func() {
 					Namespace: CounterMeasureNamespace,
 				},
 				Spec: cmv1alpha1.CounterMeasureSpec{
-					Prometheus: cmv1alpha1.PrometheusSpec{
+					Prometheus: &cmv1alpha1.PrometheusSpec{
 						Service: &cmv1alpha1.ServiceReference{
 							Name:      "prom-operated",
 							Namespace: "monitoring",

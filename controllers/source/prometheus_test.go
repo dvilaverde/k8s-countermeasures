@@ -65,11 +65,12 @@ func TestGetAlerts(t *testing.T) {
 	activeAlert := prom_v1.Alert{
 		ActiveAt: alertTime,
 		Annotations: model.LabelSet{
-			"pod": "app-pod-xyxsl",
+			"managed-by": "helm",
 		},
 		Labels: model.LabelSet{
-			"label1":    "value1",
+			"label":     "value",
 			"alertname": "custom-alert",
+			"pod":       "app-pod-xyxsl",
 		},
 		State: prom_v1.AlertStateFiring,
 		Value: "1",
@@ -96,6 +97,12 @@ func TestGetAlerts(t *testing.T) {
 	}
 	assert.False(t, active)
 
-	// assert.Equal(t, alertTime, alertsResponse.Alerts[0].ActiveAt)
-	// assert.Equal(t, "app-pod-xyxsl", string(alertsResponse.Alerts[0].Annotations["pod"]))
+	labels, err := p.GetAlertLabels("custom-alert", false)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	assert.Equal(t, 3, len(labels))
+	assert.Equal(t, "app-pod-xyxsl", labels["pod"])
 }
