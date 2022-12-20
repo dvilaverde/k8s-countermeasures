@@ -17,7 +17,10 @@ spec:
   versions:
   - additionalPrinterColumns:
     - jsonPath: .status.lastObservation
-      name: Status
+      name: Observation
+      type: string
+    - jsonPath: .status.lastObservationTime
+      name: Observation Time
       type: string
     name: v1alpha1
     schema:
@@ -9373,9 +9376,11 @@ spec:
                 type: array
               lastObservation:
                 type: string
+              lastObservationTime:
+                format: date-time
+                type: string
             required:
             - conditions
-            - lastObservation
             type: object
         type: object
     served: true

@@ -90,7 +90,8 @@ type CounterMeasureStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	LastObservation LastObservationType `json:"lastObservation"`
+	LastObservation     LastObservationType `json:"lastObservation,omitempty"`
+	LastObservationTime *metav1.Time        `json:"lastObservationTime,omitempty"`
 
 	Conditions []metav1.Condition `json:"conditions"`
 }
@@ -98,15 +99,16 @@ type CounterMeasureStatus struct {
 type LastObservationType string
 
 const (
-	Monitoring   LastObservationType = "Monitoring"
-	TakingAction LastObservationType = "Taking Action"
+	Monitoring LastObservationType = "Monitoring"
+	Applying   LastObservationType = "Applying"
 )
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
 // CounterMeasure is the Schema for the countermeasures API
-// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.lastObservation`
+// +kubebuilder:printcolumn:name="Observation",type=string,JSONPath=`.status.lastObservation`
+// +kubebuilder:printcolumn:name="Observation Time",type=string,JSONPath=`.status.lastObservationTime`
 type CounterMeasure struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

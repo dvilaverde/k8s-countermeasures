@@ -34,6 +34,7 @@ import (
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -104,15 +105,17 @@ func main() {
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
 	})
+
+	monitor := countermeasure.NewCounterMeasureMonitor(2)
+	mgr.Add(monitor)
+
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	if err = (&controllers.CounterMeasureReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	reconciler := controllers.NewCounterMeasureReconciler(monitor, mgr.GetClient(), mgr.GetScheme())
+	if err = (reconciler).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CounterMeasure")
 		os.Exit(1)
 	}

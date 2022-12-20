@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	monv1 "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
 )
 
 const (
@@ -42,7 +43,19 @@ const (
 // CounterMeasureReconciler reconciles a CounterMeasure object
 type CounterMeasureReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme  *runtime.Scheme
+	monitor *monv1.CounterMeasureMonitor
+}
+
+// NewCounterMeasureReconciler create a new reconciler
+func NewCounterMeasureReconciler(monitor *monv1.CounterMeasureMonitor,
+	client client.Client,
+	scheme *runtime.Scheme) *CounterMeasureReconciler {
+	return &CounterMeasureReconciler{
+		Client:  client,
+		Scheme:  scheme,
+		monitor: monitor,
+	}
 }
 
 //+kubebuilder:rbac:groups=operator.vilaverde.rocks,resources=countermeasures,verbs=get;list;watch;create;update;patch;delete

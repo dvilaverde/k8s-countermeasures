@@ -1,0 +1,55 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: monitored-app
+  name: monitored-app
+  namespace: ns-custom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: monitored-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: monitored-app
+    spec:
+      containers:
+        - name: main
+          image: quay.io/brancz/prometheus-example-app:v0.3.0
+          ports:
+            - containerPort: 8080
+              name: web
+          resources:
+            limits:
+              cpu: "1"
+              memory: 64M
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    app.kubernetes.io/name: monitored-app
+  name: monitored-app
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: monitored-app
+  podMetricsEndpoints:
+  - port: web
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    prometheus: test
+    role: alert-rules
+  name: monitored-app-404
+spec:
+  groups:
+  - name: ./app.rules
+    rules:
+    - alert: HTTP_404
+      expr: http_requests_total{namespace="ns-custom",job="ns-custom/monitored-app",code="404"} > 1

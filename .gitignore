@@ -15,3 +15,6 @@
 # vendor/
 
 bin/
+
+# exclude the debug binary
+__debug_bin
