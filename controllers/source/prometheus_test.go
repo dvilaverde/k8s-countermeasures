@@ -68,25 +68,34 @@ func TestGetAlerts(t *testing.T) {
 			"pod": "app-pod-xyxsl",
 		},
 		Labels: model.LabelSet{
-			"label1": "value1",
+			"label1":    "value1",
+			"alertname": "custom-alert",
 		},
 		State: prom_v1.AlertStateFiring,
 		Value: "1",
 	}
 	alerts[0] = activeAlert
 
-	api.On("Alerts", mock.AnythingOfType("*context.emptyCtx")).Return(prom_v1.AlertsResult{
+	api.On("Alerts", mock.AnythingOfType("*context.timerCtx")).Return(prom_v1.AlertsResult{
 		Alerts: alerts,
 	})
 
-	// TODO: replace this call with a call to the prometheus.go source
-	alertsResponse, err := client.API().Alerts(context.TODO())
+	p := NewPrometheusSource(client.API())
+	active, err := p.IsAlertActive("custom-alert", false)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	// END
 
-	assert.Equal(t, alertTime, alertsResponse.Alerts[0].ActiveAt)
-	assert.Equal(t, "app-pod-xyxsl", string(alertsResponse.Alerts[0].Annotations["pod"]))
+	assert.True(t, active)
+
+	active, err = p.IsAlertActive("custom-alert2", false)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	assert.False(t, active)
+
+	// assert.Equal(t, alertTime, alertsResponse.Alerts[0].ActiveAt)
+	// assert.Equal(t, "app-pod-xyxsl", string(alertsResponse.Alerts[0].Annotations["pod"]))
 }

@@ -96,8 +96,8 @@ type CounterMeasureSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Prometheus PrometheusSpec `json:"prometheus,omitempty"`
-	Actions    []Action       `json:"actions"`
+	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
+	Actions    []Action        `json:"actions"`
 }
 
 // CounterMeasureStatus defines the observed state of CounterMeasure
