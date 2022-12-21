@@ -18,6 +18,13 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+- apiGroups:
   - operator.vilaverde.rocks
   resources:
   - countermeasures

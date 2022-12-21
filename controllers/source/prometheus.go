@@ -10,6 +10,8 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+// TODO: maybe use a cache (k8s.io/client-go/tools/cache) here to store the calls to get all alerts from P8s
+
 type PrometheusSource struct {
 	p8sApi        v1.API
 	cachedAlerts  []v1.Alert

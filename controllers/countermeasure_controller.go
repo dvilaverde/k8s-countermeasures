@@ -22,11 +22,11 @@ import (
 	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,8 +36,11 @@ import (
 )
 
 const (
-	OperatorSucceeded            = "OperatorSucceeded"
-	OperatorResourceNotAvailable = "OperatorResourceNotAvailable"
+	ReasonSucceeded            = "Succeeded"
+	ReasonReconciling          = "Reconciling"
+	ReasonResourceNotAvailable = "ResourceNotAvailable"
+
+	TypeActive = "Active"
 )
 
 // CounterMeasureReconciler reconciles a CounterMeasure object
@@ -58,10 +61,14 @@ func NewCounterMeasureReconciler(monitor *monv1.CounterMeasureMonitor,
 	}
 }
 
+// Refer to the following URL for the K8s API groups:
+// https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#-strong-api-groups-strong-
+//
 //+kubebuilder:rbac:groups=operator.vilaverde.rocks,resources=countermeasures,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=operator.vilaverde.rocks,resources=countermeasures/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=operator.vilaverde.rocks,resources=countermeasures/finalizers,verbs=update
 //+kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=services,verbs=get;list
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -75,35 +82,99 @@ func NewCounterMeasureReconciler(monitor *monv1.CounterMeasureMonitor,
 func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	operatorCR := &operatorv1alpha1.CounterMeasure{}
-	err := r.Get(ctx, req.NamespacedName, operatorCR)
-	if err != nil && errors.IsNotFound(err) {
-		logger.Info("CounterMeasure resource not found", "name", req.Name, "namespace", req.Namespace)
-		return ctrl.Result{}, nil
-	} else if err != nil {
+	logger.Info("Reconciling CounterMeasure", "name", req.Name, "namespace", req.Namespace)
+
+	counterMeasureCR := &operatorv1alpha1.CounterMeasure{}
+	err := r.Get(ctx, req.NamespacedName, counterMeasureCR)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// stop reconciliation since the Operator Custom Resource was not found
+			// TODO: Check that the NamespaceName is removed from the monitoring service
+			logger.Info("CounterMeasure resource not found", "name", req.Name, "namespace", req.Namespace)
+			return ctrl.Result{}, nil
+		}
+
+		// could not read the CounterMeasure resource, throw error so it can be requeued.
 		logger.Error(err, "Error getting CounterMeasure resource object")
-		meta.SetStatusCondition(&operatorCR.Status.Conditions, metav1.Condition{
-			Type:               "Ready",
-			Status:             metav1.ConditionFalse,
-			Reason:             OperatorResourceNotAvailable,
-			LastTransitionTime: metav1.NewTime(time.Now()),
-			Message:            fmt.Sprintf("unable to get CounterMeasure: %s", err.Error()),
-		})
-		return ctrl.Result{}, utilerrors.NewAggregate([]error{err, r.Status().Update(ctx, operatorCR)})
+		return ctrl.Result{}, err
 	}
 
-	// TODO: if a Job is created, make sure this is called so there will be an owner relationship
-	// ctrl.SetControllerReference(operatorCR, newResource, r.Scheme)
-	logger.Info("Doing some reconciling here, check for prom metrics??", "name", req.Name, "namespace", req.Namespace)
+	// Let's just set the status as Unknown when no status are available
+	if counterMeasureCR.Status.Conditions == nil || len(counterMeasureCR.Status.Conditions) == 0 {
+		meta.SetStatusCondition(&counterMeasureCR.Status.Conditions, metav1.Condition{
+			Type:    TypeActive,
+			Status:  metav1.ConditionUnknown,
+			Reason:  ReasonReconciling,
+			Message: "Starting reconciliation",
+		})
 
-	meta.SetStatusCondition(&operatorCR.Status.Conditions, metav1.Condition{
-		Type:               "Ready",
-		Status:             metav1.ConditionTrue,
-		Reason:             OperatorSucceeded,
-		LastTransitionTime: metav1.NewTime(time.Now()),
-		Message:            "operaator successfully reconciling",
-	})
-	return ctrl.Result{}, utilerrors.NewAggregate([]error{err, r.Status().Update(ctx, operatorCR)})
+		if err = r.Status().Update(ctx, counterMeasureCR); err != nil {
+			logger.Error(err, "Failed to update CounterMeasure status")
+			return ctrl.Result{}, err
+		}
+
+		// Let's re-fetch the countermeasure Custom Resource after update the status
+		// so that we have the latest state of the resource on the cluster and we will avoid
+		// raise the issue "the object has been modified, please apply
+		// your changes to the latest version and try again" which would re-trigger the reconciliation
+		// if we try to update it again in the following operations
+		if err := r.Get(ctx, req.NamespacedName, counterMeasureCR); err != nil {
+			logger.Error(err, "Failed to re-fetch countermeasure")
+			return ctrl.Result{}, err
+		}
+	}
+
+	if counterMeasureCR.GetDeletionTimestamp() != nil {
+		// TODO: handle deletion
+		return ctrl.Result{}, nil
+	} else {
+		// TODO: if a Job is created, make sure this is called so there will be an owner relationship
+		// ctrl.SetControllerReference(operatorCR, newResource, r.Scheme)
+		logger.Info("Validating counter measure spec", "name", req.Name, "namespace", req.Namespace)
+
+		valid, err := r.isValid(ctx, counterMeasureCR)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if valid {
+			err = r.monitor.StartMonitoring(counterMeasureCR)
+			return ctrl.Result{}, err
+		}
+
+		return ctrl.Result{}, nil
+	}
+}
+
+func (r *CounterMeasureReconciler) isValid(ctx context.Context,
+	counterMeasure *operatorv1alpha1.CounterMeasure) (bool, error) {
+	logger := log.FromContext(ctx)
+	promSvc := counterMeasure.Spec.Prometheus.Service
+	serviceObject := &corev1.Service{}
+	var err error
+	valid := true
+	if err = r.Get(ctx, promSvc.GetNamespacedName(), serviceObject); err != nil {
+		if errors.IsNotFound(err) {
+			meta.SetStatusCondition(&counterMeasure.Status.Conditions, metav1.Condition{
+				Type:               TypeActive,
+				Status:             metav1.ConditionFalse,
+				Reason:             ReasonResourceNotAvailable,
+				LastTransitionTime: metav1.NewTime(time.Now()),
+				Message:            fmt.Sprintf("service %v:%v not found", promSvc.Namespace, promSvc.Name),
+			})
+
+			// if the update happens the the err value will be reset to nil which is what we
+			// want so that we don't retry the reconcile
+			if err = r.Status().Update(ctx, counterMeasure); err != nil {
+				logger.Error(err, "Failed to update CounterMeasure status")
+			}
+		} else {
+			logger.Error(err, "Error getting Prometheus target resource", "name", promSvc.Name, "namespace", promSvc.Namespace)
+		}
+
+		valid = false
+	}
+	return (valid && len(ValidateSpec(&counterMeasure.Spec)) == 0), err
 }
 
 // SetupWithManager sets up the controller with the Manager.

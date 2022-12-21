@@ -96,18 +96,41 @@ var _ = Describe("CounterMeasures controller", func() {
 			// Let's make sure our Command string value was properly converted/handled.
 			Expect(strings.Join(createdCounterMeasure.Spec.Actions[0].Command[:], " ")).Should(Equal("rm -Rf /tmp"))
 
-			// Next check the last observation time
-			By("By checking the Countermeasure has no last observation time")
-			Consistently(func() (bool, error) {
-				err := k8sClient.Get(ctx, counterMeasureLookupKey, createdCounterMeasure)
-				if err != nil {
-					return false, err
-				}
-				return createdCounterMeasure.Status.LastObservationTime.IsZero(), nil
-			}, duration, interval).Should(Equal(true))
+			// // Next check the last observation time
+			// By("By checking the Countermeasure has no last observation time")
+			// Consistently(func() (bool, error) {
+			// 	err := k8sClient.Get(ctx, counterMeasureLookupKey, createdCounterMeasure)
+			// 	if err != nil {
+			// 		return false, err
+			// 	}
+			// 	return createdCounterMeasure.Status.LastObservationTime.IsZero(), nil
+			// }, duration, interval).Should(Equal(true))
 
-			// Lets wait for the Last Observation time to be set by the controller
+			// // Lets wait for the Last Observation time to be set by the controller
+			// reconciler := NewCounterMeasureReconciler(nil, k8sClient, k8sClient.Scheme())
 
+			// _, err := reconciler.Reconcile(ctx, reconcile.Request{
+			// 	NamespacedName: types.NamespacedName{Name: CounterMeasureName, Namespace: CounterMeasureName},
+			// })
+			// Expect(err).To(Not(HaveOccurred()))
+
+			// By("Checking if CounterMeasure last observation was updated")
+			// Eventually(func() (bool, error) {
+			// 	err := k8sClient.Get(ctx, counterMeasureLookupKey, createdCounterMeasure)
+			// 	if err != nil {
+			// 		return false, err
+			// 	}
+			// 	return (createdCounterMeasure.Status.LastObservation == cmv1alpha1.Applying), nil
+			// }, time.Minute, time.Second).Should(Equal(true))
+
+			// By("By checking the Countermeasure has last observation time")
+			// Consistently(func() (bool, error) {
+			// 	err := k8sClient.Get(ctx, counterMeasureLookupKey, createdCounterMeasure)
+			// 	if err != nil {
+			// 		return false, err
+			// 	}
+			// 	return createdCounterMeasure.Status.LastObservationTime.IsZero(), nil
+			// }, duration, interval).Should(Equal(false))
 		})
 	})
 

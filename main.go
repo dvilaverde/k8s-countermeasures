@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -29,6 +30,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -85,12 +87,11 @@ func main() {
 			the manager will watch and manage resources in all namespaces`)
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	managerOptions := ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
-		Namespace:              watchNamespace,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "b444787d.vilaverde.rocks",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
@@ -104,9 +105,21 @@ func main() {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
-	})
+	}
 
-	monitor := countermeasure.NewCounterMeasureMonitor(2)
+	if strings.Contains(watchNamespace, ",") {
+		managerOptions.Namespace = ""
+		namespaces := strings.Split(watchNamespace, ",")
+		for i := range namespaces {
+			namespaces[i] = strings.TrimSpace(namespaces[i])
+		}
+		managerOptions.NewCache = cache.MultiNamespacedCacheBuilder(namespaces)
+	} else {
+		managerOptions.Namespace = watchNamespace
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions)
+	monitor := countermeasure.NewCounterMeasureMonitor(2) // TODO: make this configurable
 	mgr.Add(monitor)
 
 	if err != nil {

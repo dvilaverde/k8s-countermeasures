@@ -9,9 +9,9 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${fileDirname}",
+            "program": "${workspaceFolder}/main.go",
             "env": {
-                "WATCH_NAMESPACE": "ns-countermeasures",
+                "WATCH_NAMESPACE": "ns-custom,monitoring",
             }
         },
         {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"github.com/go-logr/logr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -52,14 +53,28 @@ func (c *CounterMeasureMonitor) Start(ctx context.Context) error {
 	log.Info("Starting CounterMeasure monitoring")
 
 	log.Info("Starting monitor workers")
-	// Launch two workers to process Foo resources
+	// Launch two workers to process CounterMeasure resources
 	for i := 0; i < c.workers; i++ {
 		go wait.Until(c.runWorker, time.Second, ctx.Done())
 	}
 
 	log.Info("Started monitor workers")
 	<-ctx.Done()
-	log.Info("Shutting down monitor workers")
+	return nil
+}
+
+func (c *CounterMeasureMonitor) StartMonitoring(countermeasure *operatorv1alpha1.CounterMeasure) error {
+	key := ToKey(&countermeasure.ObjectMeta)
+	c.queue.AddRateLimited(key)
+
+	return nil
+}
+
+func (c *CounterMeasureMonitor) StopMonitoring(key string) error {
+
+	// it's import to remove the key from the work queue, otherwise we'll leak
+	// countermeasures being monitored.
+	c.queue.Forget(key)
 
 	return nil
 }
@@ -70,6 +85,7 @@ func (c *CounterMeasureMonitor) Start(ctx context.Context) error {
 func (c *CounterMeasureMonitor) runWorker() {
 	for c.processNextWorkItem() {
 	}
+	log.Info("counter measures monitor shutting down worker")
 }
 
 // processNextWorkItem will read a single work item off the workqueue and
@@ -81,31 +97,17 @@ func (c *CounterMeasureMonitor) processNextWorkItem() bool {
 		return false
 	}
 
-	// We wrap this block in a func so we can defer c.queue.Done.
-	err := func(obj interface{}) error {
-		// TODO: see https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/sample-controller/controller.go
+	defer c.queue.Done(obj)
 
-		// We call Done here so the workqueue knows we have finished
-		// processing this item. We also must remember to call Forget if we
-		// do not want this work item being re-queued. For example, we do
-		// not call Forget if a transient error occurs, instead the item is
-		// put back on the workqueue and attempted again after a back-off
-		// period.
-		defer c.queue.Done(obj)
+	// TODO: do the actual work here
+	// deleted, err := r.checkKey(key)
+	// if err != nil {
+	// 	utilruntime.HandleError(err)
+	// }
 
-		// TODO: do the actual work here
-
-		// Finally, if no error occurs we Forget this item so it does not
-		// get queued again until another change happens.
-		c.queue.Forget(obj)
-		log.Info("Successfully synced")
-		return nil
-	}(obj)
-
-	if err != nil {
-		utilruntime.HandleError(err)
-		return true
-	}
+	// if !deleted {
+	// 	c.queue.AddRateLimited(key)
+	// }
 
 	return true
 }

@@ -22,6 +22,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -42,6 +43,14 @@ type ServiceReference struct {
 	// `targetPort` should be a valid name of a port in the target service.
 	// +optional
 	TargetPort string `json:"targetPort,omitempty"`
+}
+
+// GetNamespacedName get the NamespacedName of the Service
+func (s *ServiceReference) GetNamespacedName() types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: s.Namespace,
+		Name:      s.Name,
+	}
 }
 
 // Prometheus definition of a monitor for a prometheus service in the K8s cluster
