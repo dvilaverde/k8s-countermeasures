@@ -70,6 +70,7 @@ spec:
         - /manager
         args:
         - --leader-elect
+        - --zap-time-encoding=rfc3339
         image: controller:latest
         name: manager
         securityContext:

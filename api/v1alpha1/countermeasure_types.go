@@ -55,8 +55,7 @@ func (s *ServiceReference) GetNamespacedName() types.NamespacedName {
 
 // Prometheus definition of a monitor for a prometheus service in the K8s cluster
 type PrometheusSpec struct {
-	Service  *ServiceReference `json:"service"`
-	Interval metav1.Duration   `json:"interval,omitempty"`
+	Service *ServiceReference `json:"service"`
 	// TODO: support auth (basic and TLS) using secret ref
 	// TODO: need a way to get the instance from the result of the expression,
 	// 			maybe a resourceLabel property
@@ -114,25 +113,25 @@ type CounterMeasureStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	LastObservation     LastObservationType `json:"lastObservation,omitempty"`
-	LastObservationTime *metav1.Time        `json:"lastObservationTime,omitempty"`
+	LastStatus           StatusType   `json:"lastStatus,omitempty"`
+	LastStatusChangeTime *metav1.Time `json:"lastStatusChangeTime,omitempty"`
 
 	Conditions []metav1.Condition `json:"conditions"`
 }
 
-type LastObservationType string
+type StatusType string
 
 const (
-	Monitoring LastObservationType = "Monitoring"
-	Applying   LastObservationType = "Applying"
+	Monitoring StatusType = "Monitoring"
+	Applying   StatusType = "Applying"
 )
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
 // CounterMeasure is the Schema for the countermeasures API
-// +kubebuilder:printcolumn:name="Observation",type=string,JSONPath=`.status.lastObservation`
-// +kubebuilder:printcolumn:name="Observation Time",type=string,JSONPath=`.status.lastObservationTime`
+// +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.lastStatus`
+// +kubebuilder:printcolumn:name="Status Last Changed",type=string,JSONPath=`.status.lastStatusChangeTime`
 type CounterMeasure struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

@@ -7,7 +7,6 @@ spec:
     service:
       name: prometheus-operated
       namespace: monitoring
-    interval: 15s
     alert:
       name: CPUThrottlingHigh
       includePending: true

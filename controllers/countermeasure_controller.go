@@ -40,7 +40,7 @@ const (
 	ReasonReconciling          = "Reconciling"
 	ReasonResourceNotAvailable = "ResourceNotAvailable"
 
-	TypeActive = "Active"
+	TypeMonitoring = "Monitoring"
 )
 
 // CounterMeasureReconciler reconciles a CounterMeasure object
@@ -102,14 +102,14 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Let's just set the status as Unknown when no status are available
 	if counterMeasureCR.Status.Conditions == nil || len(counterMeasureCR.Status.Conditions) == 0 {
 		meta.SetStatusCondition(&counterMeasureCR.Status.Conditions, metav1.Condition{
-			Type:    TypeActive,
+			Type:    TypeMonitoring,
 			Status:  metav1.ConditionUnknown,
 			Reason:  ReasonReconciling,
 			Message: "Starting reconciliation",
 		})
 
 		if err = r.Status().Update(ctx, counterMeasureCR); err != nil {
-			logger.Error(err, "Failed to update CounterMeasure status")
+			logger.Error(err, "failed to update countermeasure status")
 			return ctrl.Result{}, err
 		}
 
@@ -119,7 +119,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// your changes to the latest version and try again" which would re-trigger the reconciliation
 		// if we try to update it again in the following operations
 		if err := r.Get(ctx, req.NamespacedName, counterMeasureCR); err != nil {
-			logger.Error(err, "Failed to re-fetch countermeasure")
+			logger.Error(err, "failed to reload countermeasure")
 			return ctrl.Result{}, err
 		}
 	}
@@ -156,7 +156,7 @@ func (r *CounterMeasureReconciler) isValid(ctx context.Context,
 	if err = r.Get(ctx, promSvc.GetNamespacedName(), serviceObject); err != nil {
 		if errors.IsNotFound(err) {
 			meta.SetStatusCondition(&counterMeasure.Status.Conditions, metav1.Condition{
-				Type:               TypeActive,
+				Type:               TypeMonitoring,
 				Status:             metav1.ConditionFalse,
 				Reason:             ReasonResourceNotAvailable,
 				LastTransitionTime: metav1.NewTime(time.Now()),
@@ -166,10 +166,10 @@ func (r *CounterMeasureReconciler) isValid(ctx context.Context,
 			// if the update happens the the err value will be reset to nil which is what we
 			// want so that we don't retry the reconcile
 			if err = r.Status().Update(ctx, counterMeasure); err != nil {
-				logger.Error(err, "Failed to update CounterMeasure status")
+				logger.Error(err, "failed to update countermeasure status")
 			}
 		} else {
-			logger.Error(err, "Error getting Prometheus target resource", "name", promSvc.Name, "namespace", promSvc.Namespace)
+			logger.Error(err, "error getting prometheus target resource", "name", promSvc.Name, "namespace", promSvc.Namespace)
 		}
 
 		valid = false

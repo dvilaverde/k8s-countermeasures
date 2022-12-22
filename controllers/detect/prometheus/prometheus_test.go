@@ -1,4 +1,4 @@
-package source
+package prometheus
 
 import (
 	"context"
@@ -81,23 +81,19 @@ func TestGetAlerts(t *testing.T) {
 		Alerts: alerts,
 	})
 
-	p := NewPrometheusSource(client.API())
-	active, err := p.IsAlertActive("custom-alert", false)
+	p := NewPrometheusService(client.API())
+	activeAlerts, err := p.GetActiveAlerts()
 	if err != nil {
 		t.Error(err)
 		return
 	}
-
+	active := activeAlerts.IsAlertActive("custom-alert", false)
 	assert.True(t, active)
 
-	active, err = p.IsAlertActive("custom-alert2", false)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	active = activeAlerts.IsAlertActive("custom-alert2", false)
 	assert.False(t, active)
 
-	labels, err := p.GetAlertLabels("custom-alert", false)
+	labels, err := activeAlerts.GetActiveAlertLabels("custom-alert", false)
 	if err != nil {
 		t.Error(err)
 		return

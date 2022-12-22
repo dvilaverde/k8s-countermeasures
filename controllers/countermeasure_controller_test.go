@@ -66,9 +66,6 @@ var _ = Describe("CounterMeasures controller", func() {
 							Name:      "prom-operated",
 							Namespace: "monitoring",
 						},
-						Interval: metav1.Duration{
-							Duration: duration,
-						},
 						Alert: &cmv1alpha1.PrometheusAlertSpec{
 							AlertName:      "CPUThrottlingHigh",
 							IncludePending: true,

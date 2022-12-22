@@ -16,11 +16,11 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.lastObservation
-      name: Observation
+    - jsonPath: .status.lastStatus
+      name: Status
       type: string
-    - jsonPath: .status.lastObservationTime
-      name: Observation Time
+    - jsonPath: .status.lastStatusChangeTime
+      name: Status Last Changed
       type: string
     name: v1alpha1
     schema:
@@ -9237,8 +9237,6 @@ spec:
                     required:
                     - name
                     type: object
-                  interval:
-                    type: string
                   service:
                     properties:
                       name:
@@ -9341,9 +9339,9 @@ spec:
                   - type
                   type: object
                 type: array
-              lastObservation:
+              lastStatus:
                 type: string
-              lastObservationTime:
+              lastStatusChangeTime:
                 format: date-time
                 type: string
             required:
