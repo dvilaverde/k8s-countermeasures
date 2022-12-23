@@ -1,16 +1,10 @@
 package countermeasure
 
 import (
-	"context"
-	"time"
-
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/actions"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/detect"
-	"github.com/go-logr/logr"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/workqueue"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/actions"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -20,129 +14,52 @@ var (
 )
 
 type CounterMeasureMonitor struct {
-	client    client.Client
-	logger    logr.Logger
-	queue     workqueue.RateLimitingInterface
-	workers   int
 	detectors []detect.Detector
+	client    client.Client
+
+	monitored map[string]detect.CancelFunc
 }
 
-func NewCounterMeasureMonitor(detectors []detect.Detector, workers int) *CounterMeasureMonitor {
+func NewMonitor(detectors []detect.Detector, client client.Client) *CounterMeasureMonitor {
 	return &CounterMeasureMonitor{
-		queue:     workqueue.NewNamedRateLimitingQueue(NewSourceRateLimiter(), "countermeasuremonitor"),
-		workers:   workers,
 		detectors: detectors,
+		client:    client,
+		monitored: make(map[string]detect.CancelFunc),
 	}
-}
-
-// InjectLogger injectable logger
-// https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/runtime/inject/inject.go
-func (c *CounterMeasureMonitor) InjectLogger(logr logr.Logger) error {
-	c.logger = logr
-	return nil
-}
-
-// InjectClient injectable client
-// https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/runtime/inject/inject.go
-func (c *CounterMeasureMonitor) InjectClient(client client.Client) error {
-	c.client = client
-	return nil
-}
-
-// Start implements the Runnable interface so this can participate in the manager lifecycle.
-func (c *CounterMeasureMonitor) Start(ctx context.Context) error {
-	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	log.Info("Starting CounterMeasure monitoring")
-
-	log.Info("Starting monitor workers")
-	// Launch two workers to process CounterMeasure resources
-	for i := 0; i < c.workers; i++ {
-		go wait.Until(c.runWorker, time.Second, ctx.Done())
-	}
-
-	log.Info("Started monitor workers")
-	<-ctx.Done()
-	return nil
 }
 
 // StartMonitoring will start monitoring a resource for events that require action
 func (c *CounterMeasureMonitor) StartMonitoring(countermeasure *operatorv1alpha1.CounterMeasure) error {
-	key := ToKey(&countermeasure.ObjectMeta)
-	c.queue.AddRateLimited(key)
+
+	found := false
 
 	for _, detect := range c.detectors {
 		if detect.Supports(&countermeasure.Spec) {
-			detect.NotifyOn(*countermeasure, actions.NewDeleteAction(c.client))
+			nsName := ToNamespaceName(&countermeasure.ObjectMeta)
+
+			cancel, err := detect.NotifyOn(*countermeasure, actions.NewDeleteAction(c.client))
+			if err != nil {
+				return err
+			}
+
+			found = true
+			c.monitored[nsName.String()] = cancel
+			break
 		}
 	}
 
-	return nil
-}
-
-func (c *CounterMeasureMonitor) StopMonitoring(key string) error {
-
-	// it's import to remove the key from the work queue, otherwise we'll leak
-	// countermeasures being monitored.
-	c.queue.Forget(key)
+	if !found {
+		log.Error(nil, "could not find a supported detector")
+	}
 
 	return nil
 }
 
-// runWorker is a long-running function that will continually call the
-// processNextWorkItem function in order to read and process a message on the
-// workqueue.
-func (c *CounterMeasureMonitor) runWorker() {
-	for c.processNextWorkItem() {
-	}
-	log.Info("counter measures monitor shutting down worker")
-}
+func (c *CounterMeasureMonitor) StopMonitoring(key types.NamespacedName) error {
 
-// processNextWorkItem will read a single work item off the workqueue and
-// attempt to process it, by calling the syncHandler.
-func (c *CounterMeasureMonitor) processNextWorkItem() bool {
-	obj, shutdown := c.queue.Get()
-
-	if shutdown {
-		return false
+	if cancel, ok := c.monitored[key.String()]; ok {
+		cancel()
 	}
 
-	defer c.queue.Done(obj)
-
-	// TODO: do the actual work here
-	// deleted, err := r.checkKey(key)
-	// if err != nil {
-	// 	utilruntime.HandleError(err)
-	// }
-
-	// if !deleted {
-	// 	c.queue.AddRateLimited(key)
-	// }
-
-	return true
-}
-
-// SourceRateLimiter the rate limiter for the monitoring source
-type SourceRateLimiter struct {
-	interval time.Duration
-}
-
-func NewSourceRateLimiter() workqueue.RateLimiter {
-	return &SourceRateLimiter{}
-}
-
-// When returns the interval of the rate limiter
-func (r *SourceRateLimiter) When(item interface{}) time.Duration {
-	// TODO: calculate the interval from the item
-	return r.interval
-}
-
-// NumRequeues returns back how many failures the item has had
-func (r *SourceRateLimiter) NumRequeues(item interface{}) int {
-	return 1
-}
-
-// Forget indicates that an item is finished being retried.
-func (r *SourceRateLimiter) Forget(item interface{}) {
+	return nil
 }

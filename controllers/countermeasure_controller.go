@@ -33,6 +33,7 @@ import (
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	monv1 "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect"
 )
 
 const (
@@ -51,13 +52,13 @@ type CounterMeasureReconciler struct {
 }
 
 // NewCounterMeasureReconciler create a new reconciler
-func NewCounterMeasureReconciler(monitor *monv1.CounterMeasureMonitor,
+func NewCounterMeasureReconciler(detectors []detect.Detector,
 	client client.Client,
 	scheme *runtime.Scheme) *CounterMeasureReconciler {
 	return &CounterMeasureReconciler{
 		Client:  client,
 		Scheme:  scheme,
-		monitor: monitor,
+		monitor: monv1.NewMonitor(detectors, client),
 	}
 }
 

@@ -37,9 +37,8 @@ import (
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/detect"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/detect/prometheus"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect/prometheus"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -122,26 +121,24 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions)
-
-	// add all the supported detectors
-	promDetector := prometheus.NewDetector(prometheus.NewPrometheusClient, 15*time.Second) // TODO: make configurable
-	mgr.Add(promDetector)
-
-	detectors := make([]detect.Detector, 1)
-	detectors[0] = promDetector
-	monitor := countermeasure.NewCounterMeasureMonitor(detectors, 2) // TODO: make this configurable
-	mgr.Add(monitor)
-
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	reconciler := controllers.NewCounterMeasureReconciler(monitor, mgr.GetClient(), mgr.GetScheme())
+	detectors := make([]detect.Detector, 1)
+
+	// add all the supported detectors
+	promDetector := prometheus.NewDetector(prometheus.NewPrometheusClient, 15*time.Second) // TODO: make configurable
+	detectors[0] = promDetector
+	mgr.Add(promDetector)
+
+	reconciler := controllers.NewCounterMeasureReconciler(detectors, mgr.GetClient(), mgr.GetScheme())
 	if err = (reconciler).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CounterMeasure")
+		setupLog.Error(err, "unable to create countermeasure controller")
 		os.Exit(1)
 	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

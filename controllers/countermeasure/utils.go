@@ -3,9 +3,25 @@ package countermeasure
 import (
 	"strings"
 
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+func ServiceToKey(svcRef *v1alpha1.ServiceReference) string {
+	if svcRef.Namespace == "" {
+		return svcRef.Name
+	}
+
+	return svcRef.Namespace + "/" + svcRef.Name
+}
+
+func ToNamespaceName(objectMeta *metav1.ObjectMeta) types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: objectMeta.Namespace,
+		Name:      objectMeta.Name,
+	}
+}
 
 // ToKey will return a name from a ObjectMeta in the form of Namespace/Name. If
 // no namespace is present then just Name.

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/detect"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

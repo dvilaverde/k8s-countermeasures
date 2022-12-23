@@ -4,9 +4,29 @@ import (
 	"reflect"
 	"testing"
 
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+func TestServiceToKey(t *testing.T) {
+	svc := &v1alpha1.ServiceReference{
+		Namespace: "ns",
+		Name:      "svc",
+	}
+
+	assert.Equal(t, "ns/svc", ServiceToKey(svc))
+}
+
+func TestToNamespaceName(t *testing.T) {
+	objectMeta := &metav1.ObjectMeta{
+		Namespace: "namespace",
+		Name:      "object",
+	}
+
+	assert.Equal(t, "namespace/object", ToNamespaceName(objectMeta).String())
+}
 
 func TestToKey(t *testing.T) {
 	type args struct {

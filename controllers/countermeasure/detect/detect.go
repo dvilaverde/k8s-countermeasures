@@ -15,8 +15,10 @@ func (handler HandlerFunc) OnDetection(name types.NamespacedName, labels map[str
 	handler(name, labels)
 }
 
+type CancelFunc func()
+
 type Detector interface {
-	NotifyOn(countermeasure v1alpha1.CounterMeasure, callback Handler) error
+	NotifyOn(countermeasure v1alpha1.CounterMeasure, callback Handler) (CancelFunc, error)
 
 	Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool
 }

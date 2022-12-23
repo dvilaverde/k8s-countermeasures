@@ -10,7 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/detect"
+	cm "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -29,9 +30,9 @@ type Detector struct {
 
 	interval time.Duration
 
-	callbackMux sync.Mutex
-	p8Services  map[string]*PrometheusService
-	callbacks   map[string][]callback
+	callbackMux    sync.Mutex
+	p8Services     map[string]*PrometheusService
+	p8sToCallbacks map[string][]callback
 }
 
 func NewDetector(p8ServiceBuilder Builder, interval time.Duration) *Detector {
@@ -46,7 +47,7 @@ func (d *Detector) Start(ctx context.Context) error {
 	logger := log.FromContext(ctx)
 
 	d.p8Services = make(map[string]*PrometheusService)
-	d.callbacks = make(map[string][]callback)
+	d.p8sToCallbacks = make(map[string][]callback)
 
 	ticker := time.NewTicker(d.interval)
 	go func() {
@@ -80,22 +81,22 @@ func (d *Detector) InjectClient(client client.Client) error {
 	return nil
 }
 
-func (d *Detector) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler detect.Handler) error {
+func (d *Detector) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler detect.Handler) (detect.CancelFunc, error) {
 	promConfig := countermeasure.Spec.Prometheus
 
-	key := promConfig.Service.Namespace + "/" + promConfig.Service.Name
+	p8SvcKey := cm.ServiceToKey(promConfig.Service)
 
 	d.callbackMux.Lock()
 	defer d.callbackMux.Unlock()
 
 	// use the promConfig to lookup the service
-	_, ok := d.p8Services[key]
+	_, ok := d.p8Services[p8SvcKey]
 	if !ok {
 		client, err := d.createP8sClient(*promConfig)
 		if err != nil {
-			return err
+			return func() {}, err
 		}
-		d.p8Services[key] = client
+		d.p8Services[p8SvcKey] = client
 	}
 
 	newCallback := callback{
@@ -105,17 +106,47 @@ func (d *Detector) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler dete
 	}
 
 	// the register the alert to the synchronized map
-	if cb, ok := d.callbacks[key]; !ok {
-		d.callbacks[key] = append(make([]callback, 0), newCallback)
+	if cb, ok := d.p8sToCallbacks[p8SvcKey]; !ok {
+		d.p8sToCallbacks[p8SvcKey] = append(make([]callback, 0), newCallback)
 	} else {
-		d.callbacks[key] = append(cb, newCallback)
+		d.p8sToCallbacks[p8SvcKey] = append(cb, newCallback)
 	}
 
-	return nil
+	nsName := cm.ToNamespaceName(&countermeasure.ObjectMeta)
+	return cancelFunction(d, nsName), nil
 }
 
 func (d *Detector) Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool {
 	return countermeasure != nil && countermeasure.Prometheus != nil
+}
+
+// cancelFunction create a cancel function
+func cancelFunction(d *Detector, key types.NamespacedName) func() {
+	return func() {
+		d.callbackMux.Lock()
+		defer d.callbackMux.Unlock()
+
+		for p8SvcKey, callbacks := range d.p8sToCallbacks {
+			idx := -1
+			for i, callback := range callbacks {
+				if callback.name == key {
+					idx = i
+					break
+				}
+			}
+
+			if idx != -1 {
+
+				if len(d.p8sToCallbacks[p8SvcKey]) == 1 {
+					delete(d.p8Services, p8SvcKey)
+					delete(d.p8sToCallbacks, p8SvcKey)
+				} else {
+					d.p8sToCallbacks[p8SvcKey] = append(callbacks[:idx], callbacks[idx+1:]...)
+				}
+			}
+
+		}
+	}
 }
 
 // poll fetach alerts from each prometheus service and notify the callbacks on any active alerts
@@ -123,7 +154,7 @@ func (d *Detector) poll() {
 	d.callbackMux.Lock()
 	defer d.callbackMux.Unlock()
 
-	for svc, callbacks := range d.callbacks {
+	for svc, callbacks := range d.p8sToCallbacks {
 		p8 := d.p8Services[svc]
 		alerts, err := p8.GetActiveAlerts()
 		if err == nil {
@@ -136,7 +167,7 @@ func (d *Detector) poll() {
 					if err != nil {
 						d.logger.Error(err, "could not get active alert labels", "alertname", alertName)
 					}
-					cb.handler.OnDetection(cb.name, labels)
+					go cb.handler.OnDetection(cb.name, labels)
 				}
 			}
 		} else {
