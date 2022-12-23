@@ -20,7 +20,6 @@ import (
 	json "encoding/json"
 
 	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -43,6 +42,9 @@ type ServiceReference struct {
 	// `targetPort` should be a valid name of a port in the target service.
 	// +optional
 	TargetPort string `json:"targetPort,omitempty"`
+	// `useTls` true if the HTTPS endpoint should be used.
+	// +optional
+	UseTls bool `json:"useTls,omitempty"`
 }
 
 // GetNamespacedName get the NamespacedName of the Service
@@ -82,8 +84,17 @@ type Operation struct {
 
 // PatchSpec defines a patch operation on an existing Custom Resource
 type PatchSpec struct {
-	Target    corev1.ObjectReference `json:"target"`
-	Operation []Operation            `json:"operations"`
+	Target    ObjectReference `json:"target"`
+	Operation []Operation     `json:"operations"`
+}
+
+type ObjectReference struct {
+	// `namespace` is the namespace of the service.
+	Namespace string `json:"namespace"`
+	// `name` is the name of the service.
+	Name string `json:"name"`
+	// `kind` is the type of object
+	Kind string `json:"kind"`
 }
 
 // Action defines an action to be taken when the monitor detects a condition that needs attention.
@@ -91,6 +102,9 @@ type Action struct {
 	Name string `json:"name"`
 	// +kubebuilder:validation:Optional
 	Command CommandSpec `json:"command,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	Delete *ObjectReference `json:"delete,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	JobSpec *batchv1.JobTemplateSpec `json:"job,omitempty"`

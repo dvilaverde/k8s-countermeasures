@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -37,6 +38,8 @@ import (
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/detect"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/detect/prometheus"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -119,7 +122,14 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), managerOptions)
-	monitor := countermeasure.NewCounterMeasureMonitor(2) // TODO: make this configurable
+
+	// add all the supported detectors
+	promDetector := prometheus.NewDetector(prometheus.NewPrometheusClient, 15*time.Second) // TODO: make configurable
+	mgr.Add(promDetector)
+
+	detectors := make([]detect.Detector, 1)
+	detectors[0] = promDetector
+	monitor := countermeasure.NewCounterMeasureMonitor(detectors, 2) // TODO: make this configurable
 	mgr.Add(monitor)
 
 	if err != nil {

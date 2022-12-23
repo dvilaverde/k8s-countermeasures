@@ -13,12 +13,13 @@ import (
 	"github.com/dvilaverde/k8s-countermeasures/controllers/detect"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type callback struct {
 	name      types.NamespacedName
 	alertSpec *v1alpha1.PrometheusAlertSpec
-	onDetect  detect.DetectedFunc
+	handler   detect.Handler
 }
 
 type Detector struct {
@@ -42,6 +43,7 @@ func NewDetector(p8ServiceBuilder Builder, interval time.Duration) *Detector {
 
 func (d *Detector) Start(ctx context.Context) error {
 	// TODO: make the ticker configurable
+	logger := log.FromContext(ctx)
 
 	d.p8Services = make(map[string]*PrometheusService)
 	d.callbacks = make(map[string][]callback)
@@ -58,6 +60,8 @@ func (d *Detector) Start(ctx context.Context) error {
 			}
 		}
 	}()
+
+	logger.Info("starting prometheus alert polling")
 
 	return nil
 }
@@ -76,7 +80,7 @@ func (d *Detector) InjectClient(client client.Client) error {
 	return nil
 }
 
-func (d *Detector) NotifyOn(countermeasure v1alpha1.CounterMeasure, onDetect detect.DetectedFunc) error {
+func (d *Detector) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler detect.Handler) error {
 	promConfig := countermeasure.Spec.Prometheus
 
 	key := promConfig.Service.Namespace + "/" + promConfig.Service.Name
@@ -97,7 +101,7 @@ func (d *Detector) NotifyOn(countermeasure v1alpha1.CounterMeasure, onDetect det
 	newCallback := callback{
 		name:      types.NamespacedName{Name: countermeasure.Name, Namespace: countermeasure.Namespace},
 		alertSpec: countermeasure.Spec.Prometheus.Alert.DeepCopy(),
-		onDetect:  onDetect,
+		handler:   handler,
 	}
 
 	// the register the alert to the synchronized map
@@ -132,7 +136,7 @@ func (d *Detector) poll() {
 					if err != nil {
 						d.logger.Error(err, "could not get active alert labels", "alertname", alertName)
 					}
-					cb.onDetect(cb.name, labels)
+					cb.handler.OnDetection(cb.name, labels)
 				}
 			}
 		} else {
@@ -147,15 +151,21 @@ func (d *Detector) createP8sClient(p8sService v1alpha1.PrometheusSpec) (*Prometh
 		return nil, err
 	}
 
-	svcPort, found := findNamedPort(serviceObject, p8sService.Service.TargetPort)
+	svc := p8sService.Service
+	svcPort, found := findNamedPort(serviceObject, svc.TargetPort)
 	var port int32
 	if found {
 		port = svcPort.Port
 	} else {
-		port = p8sService.Service.Port
+		port = svc.Port
 	}
 
-	address := fmt.Sprintf("https://%v.%v.svc:%v", p8sService.Service.Name, p8sService.Service.Namespace, port)
+	scheme := "http"
+	if svc.UseTls {
+		scheme = "https"
+	}
+
+	address := fmt.Sprintf("%v://%v.%v.svc:%v", scheme, svc.Name, svc.Namespace, port)
 	p8sClient, err := d.p8sBulider(address)
 	if err != nil {
 		return nil, err

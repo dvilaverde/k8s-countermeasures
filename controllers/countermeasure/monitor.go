@@ -5,6 +5,8 @@ import (
 	"time"
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/actions"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/detect"
 	"github.com/go-logr/logr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -18,16 +20,18 @@ var (
 )
 
 type CounterMeasureMonitor struct {
-	client  client.Client
-	logger  logr.Logger
-	queue   workqueue.RateLimitingInterface
-	workers int
+	client    client.Client
+	logger    logr.Logger
+	queue     workqueue.RateLimitingInterface
+	workers   int
+	detectors []detect.Detector
 }
 
-func NewCounterMeasureMonitor(workers int) *CounterMeasureMonitor {
+func NewCounterMeasureMonitor(detectors []detect.Detector, workers int) *CounterMeasureMonitor {
 	return &CounterMeasureMonitor{
-		queue:   workqueue.NewNamedRateLimitingQueue(NewSourceRateLimiter(), "countermeasuremonitor"),
-		workers: workers,
+		queue:     workqueue.NewNamedRateLimitingQueue(NewSourceRateLimiter(), "countermeasuremonitor"),
+		workers:   workers,
+		detectors: detectors,
 	}
 }
 
@@ -63,9 +67,16 @@ func (c *CounterMeasureMonitor) Start(ctx context.Context) error {
 	return nil
 }
 
+// StartMonitoring will start monitoring a resource for events that require action
 func (c *CounterMeasureMonitor) StartMonitoring(countermeasure *operatorv1alpha1.CounterMeasure) error {
 	key := ToKey(&countermeasure.ObjectMeta)
 	c.queue.AddRateLimited(key)
+
+	for _, detect := range c.detectors {
+		if detect.Supports(&countermeasure.Spec) {
+			detect.NotifyOn(*countermeasure, actions.NewDeleteAction(c.client))
+		}
+	}
 
 	return nil
 }

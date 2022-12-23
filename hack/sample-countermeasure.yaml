@@ -8,8 +8,11 @@ spec:
       name: prometheus-operated
       namespace: monitoring
     alert:
-      name: CPUThrottlingHigh
-      includePending: true
+      name: HTTP_404
+      includePending: false
   actions:
   - name: foo
-    command: ["rm", "-Rf", "/tmp"]
+    delete: 
+      name: ${labels.pod}
+      namespace: ${labels.namespace}
+      kind: Pod

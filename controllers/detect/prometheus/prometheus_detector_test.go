@@ -8,6 +8,7 @@ import (
 	"time"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/detect"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -95,10 +96,11 @@ func Test_Notify(t *testing.T) {
 	wg.Add(1)
 
 	assert.True(t, detector.Supports(&cm.Spec))
-	detector.NotifyOn(cm, func(nn types.NamespacedName, m map[string]string) {
+	detector.NotifyOn(cm, detect.HandlerFunc(func(nn types.NamespacedName, m map[string]string) {
 		assert.Equal(t, 3, len(m))
 		wg.Done()
-	})
+	}))
+
 	if err != nil {
 		t.Error(err)
 		return
