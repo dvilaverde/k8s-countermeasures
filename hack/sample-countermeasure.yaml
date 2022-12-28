@@ -11,8 +11,10 @@ spec:
       name: HTTP_404
       includePending: false
   actions:
-  - name: foo
-    delete: 
-      name: ${labels.pod}
-      namespace: ${labels.namespace}
-      kind: Pod
+  - name: delete-pod
+    delete:
+      targetObjectRef: 
+        name: "{{ .Labels.pod }}"
+        namespace: "{{ .Labels.namespace }}"
+        kind: Pod
+        apiVersion: v1

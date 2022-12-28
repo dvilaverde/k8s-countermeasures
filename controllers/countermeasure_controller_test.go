@@ -73,8 +73,10 @@ var _ = Describe("CounterMeasures controller", func() {
 					},
 					Actions: []cmv1alpha1.Action{
 						{
-							Name:    "delete-temp",
-							Command: []string{"rm", "-Rf", "/tmp"},
+							Name: "delete-temp",
+							Command: cmv1alpha1.CommandSpec{
+								Command: []string{"rm", "-Rf", "/tmp"},
+							},
 						},
 					},
 				},
@@ -91,7 +93,7 @@ var _ = Describe("CounterMeasures controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// Let's make sure our Command string value was properly converted/handled.
-			Expect(strings.Join(createdCounterMeasure.Spec.Actions[0].Command[:], " ")).Should(Equal("rm -Rf /tmp"))
+			Expect(strings.Join(createdCounterMeasure.Spec.Actions[0].Command.Command[:], " ")).Should(Equal("rm -Rf /tmp"))
 
 			// // Next check the last observation time
 			// By("By checking the Countermeasure has no last observation time")

@@ -171,7 +171,7 @@ func (d *Detector) poll() {
 				}
 			}
 		} else {
-			d.logger.Info("failed to get alerts from prometheus service", "prometheus_service", svc)
+			d.logger.Error(err, "failed to get alerts from prometheus service", "prometheus_service", svc)
 		}
 	}
 }

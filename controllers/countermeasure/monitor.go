@@ -37,7 +37,12 @@ func (c *CounterMeasureMonitor) StartMonitoring(countermeasure *operatorv1alpha1
 		if detect.Supports(&countermeasure.Spec) {
 			nsName := ToNamespaceName(&countermeasure.ObjectMeta)
 
-			cancel, err := detect.NotifyOn(*countermeasure, actions.NewDeleteAction(c.client))
+			handler, err := actions.CounterMeasureToActions(countermeasure, c.client)
+			if err != nil {
+				return err
+			}
+
+			cancel, err := detect.NotifyOn(*countermeasure, handler)
 			if err != nil {
 				return err
 			}

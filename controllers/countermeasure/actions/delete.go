@@ -1,36 +1,56 @@
 package actions
 
 import (
+	"bytes"
 	"context"
+	"html/template"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Delete struct {
 	client client.Client
+	spec   operatorv1alpha1.DeleteSpec
 }
 
-func NewDeleteAction(client client.Client) *Delete {
+func NewDeleteAction(client client.Client, spec operatorv1alpha1.DeleteSpec) *Delete {
 	return &Delete{
 		client: client,
+		spec:   spec,
 	}
 }
 
-func (d *Delete) OnDetection(counterMeasureName types.NamespacedName, labels map[string]string) {
-	pod := &corev1.Pod{}
+func (d *Delete) Perform(ctx context.Context, actionData ActionData) error {
+	object := &unstructured.Unstructured{}
 
-	ctx := context.Background()
-
-	podName := types.NamespacedName{
-		Namespace: labels["namespace"],
-		Name:      labels["pod"],
+	target := d.spec.TargetObjectRef
+	gvk, err := target.ToGroupVersionKind()
+	if err != nil {
+		return err
 	}
 
-	err := d.client.Get(ctx, podName, pod)
+	object.SetGroupVersionKind(gvk)
+
+	nsTemplate := template.Must(template.New("namespace").Parse(d.spec.TargetObjectRef.Namespace))
+	nameTemplate := template.Must(template.New("name").Parse(d.spec.TargetObjectRef.Name))
+
+	var nsBuf bytes.Buffer
+	var nameBuf bytes.Buffer
+
+	nsTemplate.Execute(&nsBuf, actionData)
+	nameTemplate.Execute(&nameBuf, actionData)
+
+	objectName := client.ObjectKey{
+		Namespace: nsBuf.String(),
+		Name:      nameBuf.String(),
+	}
+
+	err = d.client.Get(ctx, objectName, object)
 	if err == nil {
-		d.client.Delete(ctx, pod, client.GracePeriodSeconds(15))
+		d.client.Delete(ctx, object, client.GracePeriodSeconds(15))
 	}
 
+	return nil
 }

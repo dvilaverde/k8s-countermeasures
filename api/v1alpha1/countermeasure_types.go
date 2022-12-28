@@ -17,10 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	json "encoding/json"
-
-	batchv1 "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -72,45 +70,70 @@ type PrometheusAlertSpec struct {
 }
 
 // CommandSpec command and arguments to execute in a container
-type CommandSpec []string
-
-// Operation a RFC 6902 patch operation
-type Operation struct {
-	Type  string          `json:"op"`
-	Path  string          `json:"path"`
-	From  string          `json:"from,omitempty"`
-	Value json.RawMessage `json:"value,omitempty"`
+type CommandSpec struct {
+	TargetObjectRef ObjectReference `json:"targetObjectRef"`
+	Command         []string        `json:"command,omitempty"`
 }
 
 // PatchSpec defines a patch operation on an existing Custom Resource
 type PatchSpec struct {
-	Target    ObjectReference `json:"target"`
-	Operation []Operation     `json:"operations"`
+	TargetObjectRef ObjectReference `json:"targetObjectRef"`
+	PatchTemplate   string          `json:"patchTemplate"`
+}
+
+type DeleteSpec struct {
+	TargetObjectRef ObjectReference `json:"targetObjectRef"`
 }
 
 type ObjectReference struct {
 	// `namespace` is the namespace of the service.
 	Namespace string `json:"namespace"`
-	// `name` is the name of the service.
+	// `name` is the name of the object.
 	Name string `json:"name"`
 	// `kind` is the type of object
 	Kind string `json:"kind"`
+	// `apiVersion` is the version of the object
+	ApiVersion string `json:"apiVersion"`
+}
+
+func (o ObjectReference) ToGroupVersionKind() (schema.GroupVersionKind, error) {
+	gv, err := schema.ParseGroupVersion(o.ApiVersion)
+	if err != nil {
+		return schema.GroupVersionKind{}, err
+	}
+
+	return gv.WithKind(o.Kind), nil
 }
 
 // Action defines an action to be taken when the monitor detects a condition that needs attention.
 type Action struct {
-	Name string `json:"name"`
-	// +kubebuilder:validation:Optional
-	Command CommandSpec `json:"command,omitempty"`
+	Name   string `json:"name"`
+	DryRun bool   `json:"dryRun,omitempty"`
+
+	// TODO: Add the following low-level operations:
+	//		Create
+	//		Update
+	//		Patch
+	//		Delete
+	//		DeleteAllOf
 
 	// +kubebuilder:validation:Optional
-	Delete *ObjectReference `json:"delete,omitempty"`
-
-	// +kubebuilder:validation:Optional
-	JobSpec *batchv1.JobTemplateSpec `json:"job,omitempty"`
+	Delete *DeleteSpec `json:"delete,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	Patch *PatchSpec `json:"patch,omitempty"`
+
+	// The following specs are higher level operations for
+	// convienence.
+
+	// +kubebuilder:validation:Optional
+	// TODO: how to handle containers with no shell??
+	// https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container
+	// https://prefetch.net/blog/2022/04/08/ways-to-debug-kubernetes-pods-without-shells/
+	//
+	Command CommandSpec `json:"command,omitempty"`
+	// +kubebuilder:validation:Optional
+	Restart *ObjectReference `json:"restart,omitempty"`
 }
 
 // CounterMeasureSpec defines the desired state of CounterMeasure
