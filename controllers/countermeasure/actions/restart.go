@@ -1,66 +1,68 @@
 package actions
 
 import (
+	"bytes"
 	"context"
-	"time"
+	"text/template"
 
-	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
 
-const (
-	annotationLabel = "operator.vilaverde.rocks/restarted"
+	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/assets"
 )
 
 type Restart struct {
 	client client.Client
+	spec   v1alpha1.RestartSpec
 }
 
-func NewRestartAction(client client.Client) *Restart {
+func NewRestartAction(client client.Client, spec v1alpha1.RestartSpec) *Restart {
 	return &Restart{
 		client: client,
+		spec:   spec,
 	}
 }
 
-// OnDetection essentially change an annotation on the deployment to force a rolling restart.
-func (d *Restart) OnDetection(counterMeasureName types.NamespacedName, labels map[string]string) {
-	deployment := &appsv1.Deployment{}
+// Perform will apply the restart patch to the deployment
+func (r *Restart) Perform(ctx context.Context, actionData ActionData) error {
+	object := &unstructured.Unstructured{}
 
-	ctx := context.Background()
+	gvk := schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    "Deployment",
+	}
+	object.SetGroupVersionKind(gvk)
 
-	deploymentName := types.NamespacedName{
-		Namespace: labels["namespace"],
-		Name:      labels["pod"],
+	nsTemplate := template.Must(template.New("namespace").Parse(r.spec.DeploymentRef.Namespace))
+	nameTemplate := template.Must(template.New("name").Parse(r.spec.DeploymentRef.Name))
+
+	var nsBuf bytes.Buffer
+	var nameBuf bytes.Buffer
+
+	nsTemplate.Execute(&nsBuf, actionData)
+	nameTemplate.Execute(&nameBuf, actionData)
+
+	objectName := client.ObjectKey{
+		Namespace: nsBuf.String(),
+		Name:      nameBuf.String(),
 	}
 
-	err := d.client.Get(ctx, deploymentName, deployment)
-	if err == nil {
-
-		patch := client.MergeFrom(deployment.DeepCopy())
-
-		// update the annotations on the template spec metadata so that
-		// a change is present in the deployment and causes a rolling restart.
-		if deployment.Spec.Template.ObjectMeta.Annotations == nil {
-			deployment.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
-		}
-
-		restartAtString := time.Now().Format(time.RFC3339)
-		deployment.Spec.Template.ObjectMeta.Annotations[annotationLabel] = restartAtString
-
-		// create a generic patch operation this can use with templates:
-		// see https://pkg.go.dev/text/template
-		// https://stackoverflow.com/questions/61200605/generic-client-get-for-custom-kubernetes-go-operator
-		// https://github.com/redhat-cop/operator-utils/blob/master/pkg/util/templates/templates.go
-		// https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/client/unstructured_client.go
-		// see docs on client.RawPatch()
-		err = d.client.Patch(ctx, deployment, patch)
-		if err != nil {
-			// TODO: do some logging update the state of the CR
-
-		} else {
-			// TODO: update the status of the CR
-		}
+	err := r.client.Get(ctx, objectName, object)
+	if err != nil {
+		return err
 	}
 
+	// do the patch to the labels to force a restart
+	patch := assets.GetPatch("restart-patch.yaml")
+
+	err = r.client.Patch(ctx, object, patch)
+	if err != nil {
+		return err
+	}
+
+	// TODO: update the status of the CR
+	return nil
 }

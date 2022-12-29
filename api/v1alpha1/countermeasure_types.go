@@ -45,6 +45,13 @@ type ServiceReference struct {
 	UseTls bool `json:"useTls,omitempty"`
 }
 
+type DeploymentReference struct {
+	// `namespace` is the namespace of the deployment.
+	Namespace string `json:"namespace"`
+	// `name` is the name of the deployment.
+	Name string `json:"name"`
+}
+
 // GetNamespacedName get the NamespacedName of the Service
 func (s *ServiceReference) GetNamespacedName() types.NamespacedName {
 	return types.NamespacedName{
@@ -57,8 +64,6 @@ func (s *ServiceReference) GetNamespacedName() types.NamespacedName {
 type PrometheusSpec struct {
 	Service *ServiceReference `json:"service"`
 	// TODO: support auth (basic and TLS) using secret ref
-	// TODO: need a way to get the instance from the result of the expression,
-	// 			maybe a resourceLabel property
 
 	Alert *PrometheusAlertSpec `json:"alert,omitempty"`
 }
@@ -85,8 +90,12 @@ type DeleteSpec struct {
 	TargetObjectRef ObjectReference `json:"targetObjectRef"`
 }
 
+type RestartSpec struct {
+	DeploymentRef DeploymentReference `json:"deploymentRef"`
+}
+
 type ObjectReference struct {
-	// `namespace` is the namespace of the service.
+	// `namespace` is the namespace of the object.
 	Namespace string `json:"namespace"`
 	// `name` is the name of the object.
 	Name string `json:"name"`
@@ -133,7 +142,7 @@ type Action struct {
 	//
 	Command CommandSpec `json:"command,omitempty"`
 	// +kubebuilder:validation:Optional
-	Restart *ObjectReference `json:"restart,omitempty"`
+	Restart *RestartSpec `json:"restart,omitempty"`
 }
 
 // CounterMeasureSpec defines the desired state of CounterMeasure

@@ -3,7 +3,7 @@ package actions
 import (
 	"bytes"
 	"context"
-	"html/template"
+	"text/template"
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -48,9 +48,12 @@ func (d *Delete) Perform(ctx context.Context, actionData ActionData) error {
 	}
 
 	err = d.client.Get(ctx, objectName, object)
-	if err == nil {
-		d.client.Delete(ctx, object, client.GracePeriodSeconds(15))
+	if err != nil {
+		return err
 	}
 
+	d.client.Delete(ctx, object, client.GracePeriodSeconds(15))
+
+	// TODO: update the status of the CR
 	return nil
 }

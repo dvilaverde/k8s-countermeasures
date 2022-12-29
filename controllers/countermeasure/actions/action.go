@@ -28,9 +28,12 @@ func CounterMeasureToActions(countermeasure *operatorv1alpha1.CounterMeasure,
 		index:   0,
 	}
 
+	// TODO: refactor this into some form of action registry
 	for _, a := range countermeasure.Spec.Actions {
 		if a.Delete != nil {
 			seq.actions = append(seq.actions, NewDeleteAction(client, *a.Delete))
+		} else if a.Restart != nil {
+			seq.actions = append(seq.actions, NewRestartAction(client, *a.Restart))
 		}
 	}
 

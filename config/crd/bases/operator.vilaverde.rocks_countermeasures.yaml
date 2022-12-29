@@ -68,7 +68,7 @@ spec:
                               description: '`name` is the name of the object.'
                               type: string
                             namespace:
-                              description: '`namespace` is the namespace of the service.'
+                              description: '`namespace` is the namespace of the object.'
                               type: string
                           required:
                           - apiVersion
@@ -93,7 +93,7 @@ spec:
                               description: '`name` is the name of the object.'
                               type: string
                             namespace:
-                              description: '`namespace` is the namespace of the service.'
+                              description: '`namespace` is the namespace of the object.'
                               type: string
                           required:
                           - apiVersion
@@ -126,7 +126,7 @@ spec:
                               description: '`name` is the name of the object.'
                               type: string
                             namespace:
-                              description: '`namespace` is the namespace of the service.'
+                              description: '`namespace` is the namespace of the object.'
                               type: string
                           required:
                           - apiVersion
@@ -140,23 +140,20 @@ spec:
                       type: object
                     restart:
                       properties:
-                        apiVersion:
-                          description: '`apiVersion` is the version of the object'
-                          type: string
-                        kind:
-                          description: '`kind` is the type of object'
-                          type: string
-                        name:
-                          description: '`name` is the name of the object.'
-                          type: string
-                        namespace:
-                          description: '`namespace` is the namespace of the service.'
-                          type: string
+                        deploymentRef:
+                          properties:
+                            name:
+                              description: '`name` is the name of the deployment.'
+                              type: string
+                            namespace:
+                              description: '`namespace` is the namespace of the deployment.'
+                              type: string
+                          required:
+                          - name
+                          - namespace
+                          type: object
                       required:
-                      - apiVersion
-                      - kind
-                      - name
-                      - namespace
+                      - deploymentRef
                       type: object
                   required:
                   - name

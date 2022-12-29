@@ -1,0 +1,18 @@
+apiVersion: operator.vilaverde.rocks/v1alpha1
+kind: CounterMeasure
+metadata:
+  name: clean-tmp
+spec:
+  prometheus:
+    service:
+      name: prometheus-operated
+      namespace: monitoring
+    alert:
+      name: HTTP_404
+      includePending: false
+  actions:
+  - name: delete-pod
+    restart:
+      deploymentRef: 
+        name: monitored-app
+        namespace: ns-custom
