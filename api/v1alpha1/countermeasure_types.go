@@ -83,6 +83,7 @@ type CommandSpec struct {
 // PatchSpec defines a patch operation on an existing Custom Resource
 type PatchSpec struct {
 	TargetObjectRef ObjectReference `json:"targetObjectRef"`
+	PatchType       types.PatchType `json:"patchType"`
 	PatchTemplate   string          `json:"patchTemplate"`
 }
 
@@ -116,15 +117,10 @@ func (o ObjectReference) ToGroupVersionKind() (schema.GroupVersionKind, error) {
 
 // Action defines an action to be taken when the monitor detects a condition that needs attention.
 type Action struct {
-	Name   string `json:"name"`
-	DryRun bool   `json:"dryRun,omitempty"`
+	Name string `json:"name"`
 
 	// TODO: Add the following low-level operations:
 	//		Create
-	//		Update
-	//		Patch
-	//		Delete
-	//		DeleteAllOf
 
 	// +kubebuilder:validation:Optional
 	Delete *DeleteSpec `json:"delete,omitempty"`
@@ -152,6 +148,7 @@ type CounterMeasureSpec struct {
 
 	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
 	Actions    []Action        `json:"actions"`
+	DryRun     bool            `json:"dryRun,omitempty"`
 }
 
 // CounterMeasureStatus defines the observed state of CounterMeasure

@@ -104,8 +104,6 @@ spec:
                       required:
                       - targetObjectRef
                       type: object
-                    dryRun:
-                      type: boolean
                     name:
                       type: string
                     patch:
@@ -113,6 +111,12 @@ spec:
                         Custom Resource
                       properties:
                         patchTemplate:
+                          type: string
+                        patchType:
+                          description: Similarly to above, these are constants to
+                            support HTTP PATCH utilized by both the client and server
+                            that didn't make sense for a whole package to be dedicated
+                            to.
                           type: string
                         targetObjectRef:
                           properties:
@@ -136,6 +140,7 @@ spec:
                           type: object
                       required:
                       - patchTemplate
+                      - patchType
                       - targetObjectRef
                       type: object
                     restart:
@@ -159,6 +164,8 @@ spec:
                   - name
                   type: object
                 type: array
+              dryRun:
+                type: boolean
               prometheus:
                 description: Prometheus definition of a monitor for a prometheus service
                   in the K8s cluster

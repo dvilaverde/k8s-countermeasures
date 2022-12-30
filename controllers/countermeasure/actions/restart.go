@@ -1,9 +1,7 @@
 package actions
 
 import (
-	"bytes"
 	"context"
-	"text/template"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -14,14 +12,16 @@ import (
 )
 
 type Restart struct {
-	client client.Client
-	spec   v1alpha1.RestartSpec
+	BaseAction
+	spec v1alpha1.RestartSpec
 }
 
 func NewRestartAction(client client.Client, spec v1alpha1.RestartSpec) *Restart {
 	return &Restart{
-		client: client,
-		spec:   spec,
+		BaseAction: BaseAction{
+			client: client,
+		},
+		spec: spec,
 	}
 }
 
@@ -36,29 +36,22 @@ func (r *Restart) Perform(ctx context.Context, actionData ActionData) error {
 	}
 	object.SetGroupVersionKind(gvk)
 
-	nsTemplate := template.Must(template.New("namespace").Parse(r.spec.DeploymentRef.Namespace))
-	nameTemplate := template.Must(template.New("name").Parse(r.spec.DeploymentRef.Name))
-
-	var nsBuf bytes.Buffer
-	var nameBuf bytes.Buffer
-
-	nsTemplate.Execute(&nsBuf, actionData)
-	nameTemplate.Execute(&nameBuf, actionData)
-
-	objectName := client.ObjectKey{
-		Namespace: nsBuf.String(),
-		Name:      nameBuf.String(),
-	}
-
-	err := r.client.Get(ctx, objectName, object)
-	if err != nil {
-		return err
-	}
+	target := r.spec.DeploymentRef
+	objectName := ObjectKeyFromTemplate(target.Namespace, target.Name, actionData)
 
 	// do the patch to the labels to force a restart
 	patch := assets.GetPatch("restart-patch.yaml")
 
-	err = r.client.Patch(ctx, object, patch)
+	err := r.client.Get(ctx, objectName, object)
+	if err == nil {
+		opts := make([]client.PatchOption, 0)
+		if r.DryRun {
+			opts = append(opts, client.DryRunAll)
+		}
+
+		err = r.client.Patch(ctx, object, patch, opts...)
+	}
+
 	if err != nil {
 		return err
 	}
