@@ -1,7 +1,7 @@
 apiVersion: operator.vilaverde.rocks/v1alpha1
 kind: CounterMeasure
 metadata:
-  name: patch-action
+  name: json-patch-action
 spec:
   prometheus:
     service:
@@ -13,13 +13,11 @@ spec:
   actions:
   - name: custom-restart-pod
     patch:
-      patchType: application/merge-patch+json
+      patchType: application/json-patch+json
       yamlTemplate: |
-        spec:
-          template:
-            metadata:
-              annotations:
-                operator.vilaverde.rocks/restarted: "true"
+        - op: add
+          path: /spec/template/spec/containers/0/env/-
+          value: { "name": "ENV.3", "value": "value3" }
       targetObjectRef: 
         apiVersion: apps/v1
         kind: Deployment

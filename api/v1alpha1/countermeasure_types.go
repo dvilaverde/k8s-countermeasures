@@ -109,7 +109,7 @@ type DebugSpec struct {
 type PatchSpec struct {
 	TargetObjectRef ObjectReference `json:"targetObjectRef"`
 	PatchType       types.PatchType `json:"patchType"`
-	PatchTemplate   string          `json:"patchTemplate"`
+	YAMLTemplate    string          `json:"yamlTemplate"`
 }
 
 type DeleteSpec struct {

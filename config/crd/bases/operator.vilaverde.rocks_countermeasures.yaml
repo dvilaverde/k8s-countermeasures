@@ -118,8 +118,6 @@ spec:
                       description: PatchSpec defines a patch operation on an existing
                         Custom Resource
                       properties:
-                        patchTemplate:
-                          type: string
                         patchType:
                           description: Similarly to above, these are constants to
                             support HTTP PATCH utilized by both the client and server
@@ -146,10 +144,12 @@ spec:
                           - name
                           - namespace
                           type: object
+                        yamlTemplate:
+                          type: string
                       required:
-                      - patchTemplate
                       - patchType
                       - targetObjectRef
+                      - yamlTemplate
                       type: object
                     restart:
                       properties:

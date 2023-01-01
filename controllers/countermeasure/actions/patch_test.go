@@ -8,7 +8,9 @@ import (
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"github.com/stretchr/testify/assert"
@@ -98,7 +100,7 @@ func runAction(dryRun bool) (*v1.Deployment, error) {
 			Name:       DeploymentName,
 		},
 		PatchType: types.MergePatchType,
-		PatchTemplate: `spec:
+		YAMLTemplate: `spec:
   template:
     metadata:
       annotations:
@@ -124,4 +126,108 @@ func runAction(dryRun bool) (*v1.Deployment, error) {
 	}
 
 	return deployment, nil
+}
+
+func TestPatch_createPatch(t *testing.T) {
+	deployment := &v1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      DeploymentName,
+			Namespace: DeploymentNamespace,
+			Labels: map[string]string{
+				"app": "test-app",
+			},
+		},
+		Spec: v1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "img1",
+							Image: "image:latest",
+							Env: []corev1.EnvVar{
+								{
+									Name:  "ENV.0",
+									Value: "value0",
+								},
+								{
+									Name:  "ENV.1",
+									Value: "value1",
+								},
+								{
+									Name:  "ENV.2",
+									Value: "value2",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	spec := v1alpha1.PatchSpec{
+		TargetObjectRef: v1alpha1.ObjectReference{
+			ApiVersion: "apps/v1",
+			Kind:       "Deployment",
+			Namespace:  DeploymentNamespace,
+			Name:       DeploymentName,
+		},
+		PatchType: types.StrategicMergePatchType,
+		YAMLTemplate: `spec:
+  template:
+    spec: 
+      containers:
+        - name: img1
+          env:
+          - name: ENV.0
+            value: {{- range (index .Object.spec.template.spec.containers 0).env }} {{ if eq .name "ENV.1" }} {{ .value }} {{ end -}} {{ end }}
+          - name: ENV.1
+            value: {{- range (index .Object.spec.template.spec.containers 0).env }} {{ if eq .name "ENV.0" }} {{ .value }} {{ end -}} {{ end }}`,
+	}
+
+	// Objects to track in the fake client.
+	objs := []runtime.Object{deployment}
+
+	// Create a fake client to mock API calls.
+	k8sClient := fake.NewClientBuilder().WithRuntimeObjects(objs...).Build()
+
+	gvk, err := spec.TargetObjectRef.ToGroupVersionKind()
+	if err != nil {
+		t.Error(err)
+	}
+
+	object := &unstructured.Unstructured{}
+	object.SetGroupVersionKind(gvk)
+	objectName := ObjectKeyFromTemplate(PodNamespace, PodName, ActionData{})
+	err = k8sClient.Get(context.TODO(), objectName, object)
+	if err != nil {
+		t.Error(err)
+	}
+
+	patch := NewPatchAction(k8sClient, spec)
+	pd, err := patch.createPatch(PatchData{
+		Unstructured: object,
+	})
+
+	if err != nil {
+		t.Error(err)
+	}
+	bytes, _ := pd.Data(object)
+
+	deploymentPatch := &v1.Deployment{}
+	err = yaml.Unmarshal(bytes, &deploymentPatch)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.NotNil(t, deploymentPatch)
+	env := deploymentPatch.Spec.Template.Spec.Containers[0].Env
+	assert.Equal(t, "ENV.0", env[0].Name)
+	assert.Equal(t, "value1", env[0].Value)
+	assert.Equal(t, "ENV.1", env[1].Name)
+	assert.Equal(t, "value0", env[1].Value)
 }

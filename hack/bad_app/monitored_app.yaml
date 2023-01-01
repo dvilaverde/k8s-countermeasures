@@ -19,6 +19,13 @@ spec:
       containers:
         - name: main
           image: quay.io/brancz/prometheus-example-app:v0.3.0
+          env:
+            - name: ENV.0
+              value: value0
+            - name: ENV.1
+              value: value1
+            - name: ENV.2
+              value: value2
           ports:
             - containerPort: 8080
               name: web

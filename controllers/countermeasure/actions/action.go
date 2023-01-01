@@ -8,9 +8,12 @@ import (
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
+
+var log = ctrl.Log.WithName("actions")
 
 type Action interface {
 	Perform(context.Context, ActionData) error
@@ -89,8 +92,10 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels ma
 	ctx := context.Background()
 	for _, action := range seq.actions {
 		err := action.Perform(ctx, actionData)
+
 		// TODO: introduce some retrying logic here
 		if err != nil {
+			log.Error(err, "action execution error", "name", ns.Name, "namespace", ns.Namespace)
 			break
 		}
 	}

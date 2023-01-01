@@ -11,6 +11,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+type PatchData struct {
+	ActionData
+	*unstructured.Unstructured
+}
+
 type Patch struct {
 	BaseAction
 	spec v1alpha1.PatchSpec
@@ -39,31 +44,31 @@ func (p *Patch) Perform(ctx context.Context, actionData ActionData) error {
 	target := p.spec.TargetObjectRef
 	objectName := ObjectKeyFromTemplate(target.Namespace, target.Name, actionData)
 
-	patch, err := p.createPatch(actionData)
-	if err != nil {
-		return err
-	}
-
 	err = p.client.Get(ctx, objectName, object)
-	if err == nil {
-		opts := make([]client.PatchOption, 0)
-		if p.DryRun {
-			opts = append(opts, client.DryRunAll)
-		}
-		err = p.client.Patch(ctx, object, patch, opts...)
+	if err != nil {
+		return err
 	}
+
+	patch, err := p.createPatch(PatchData{
+		ActionData:   actionData,
+		Unstructured: object,
+	})
 
 	if err != nil {
 		return err
 	}
 
+	opts := make([]client.PatchOption, 0)
+	if p.DryRun {
+		opts = append(opts, client.DryRunAll)
+	}
 	// TODO: update the status of the CR
-	return nil
+	return p.client.Patch(ctx, object, patch, opts...)
 }
 
-func (p *Patch) createPatch(data ActionData) (client.Patch, error) {
+func (p *Patch) createPatch(data PatchData) (client.Patch, error) {
 
-	tmpl, err := template.New("").Parse(p.spec.PatchTemplate)
+	tmpl, err := template.New("").Parse(p.spec.YAMLTemplate)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +80,7 @@ func (p *Patch) createPatch(data ActionData) (client.Patch, error) {
 	}
 
 	json, err := yaml.YAMLToJSON(buf.Bytes())
+
 	if err != nil {
 		return nil, err
 	}
