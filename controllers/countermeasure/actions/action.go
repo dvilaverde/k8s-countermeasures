@@ -7,6 +7,7 @@ import (
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -53,8 +54,9 @@ func CounterMeasureToActions(countermeasure *operatorv1alpha1.CounterMeasure,
 			patch.DryRun = countermeasure.Spec.DryRun
 			seq.actions = append(seq.actions, patch)
 		} else if a.Debug != nil {
-			debug, _ := NewDebugAction(mgr, *a.Debug)
+			cs, _ := kubernetes.NewForConfig(mgr.GetConfig())
 			// TODO handle ignored error
+			debug := NewDebugAction(cs.CoreV1(), client, *a.Debug)
 			debug.DryRun = countermeasure.Spec.DryRun
 			seq.actions = append(seq.actions, debug)
 		}

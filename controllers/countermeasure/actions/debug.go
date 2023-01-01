@@ -6,30 +6,26 @@ import (
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	clientCoreV1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Debug struct {
 	BaseAction
-	clientset *kubernetes.Clientset
-	spec      v1alpha1.DebugSpec
+	corev1Client clientCoreV1.CoreV1Interface
+	spec         v1alpha1.DebugSpec
 }
 
-func NewDebugAction(mgr manager.Manager, spec v1alpha1.DebugSpec) (*Debug, error) {
-
-	cs, err := kubernetes.NewForConfig(mgr.GetConfig())
-	if err != nil {
-		return nil, err
-	}
-
+func NewDebugAction(coreV1Client clientCoreV1.CoreV1Interface,
+	client client.Client,
+	spec v1alpha1.DebugSpec) *Debug {
 	return &Debug{
 		BaseAction: BaseAction{
-			client: mgr.GetClient(),
+			client: client,
 		},
-		spec:      spec,
-		clientset: cs,
-	}, nil
+		spec:         spec,
+		corev1Client: coreV1Client,
+	}
 }
 
 func (d *Debug) Perform(ctx context.Context, actionData ActionData) error {
@@ -74,8 +70,7 @@ func (d *Debug) Perform(ctx context.Context, actionData ActionData) error {
 		}
 
 		pod.Spec.EphemeralContainers = append(pod.Spec.EphemeralContainers, containers...)
-		pod, err = d.clientset.
-			CoreV1().
+		_, err = d.corev1Client.
 			Pods(podName.Namespace).
 			UpdateEphemeralContainers(context.TODO(), podName.Name, pod, metav1.UpdateOptions{})
 
