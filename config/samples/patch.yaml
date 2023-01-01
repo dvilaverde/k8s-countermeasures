@@ -2,6 +2,12 @@ apiVersion: operator.vilaverde.rocks/v1alpha1
 kind: CounterMeasure
 metadata:
   name: patch-action
+  labels:
+    app.kubernetes.io/name: countermeasure
+    app.kubernetes.io/instance: countermeasure-sample
+    app.kubernetes.io/part-of: k8s-countermeasures
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: k8s-countermeasures
 spec:
   prometheus:
     service:

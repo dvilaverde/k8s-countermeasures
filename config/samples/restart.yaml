@@ -1,12 +1,24 @@
 apiVersion: operator.vilaverde.rocks/v1alpha1
 kind: CounterMeasure
 metadata:
+  name: restart-action
   labels:
     app.kubernetes.io/name: countermeasure
     app.kubernetes.io/instance: countermeasure-sample
     app.kubernetes.io/part-of: k8s-countermeasures
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: k8s-countermeasures
-  name: countermeasure-sample
 spec:
-  # TODO(user): Add fields here
+  prometheus:
+    service:
+      name: prometheus-operated
+      namespace: monitoring
+    alert:
+      name: HTTP_404
+      includePending: false
+  actions:
+  - name: delete-pod
+    restart:
+      deploymentRef: 
+        name: monitored-app
+        namespace: ns-custom

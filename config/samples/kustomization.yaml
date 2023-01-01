@@ -1,4 +1,9 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- operator_v1alpha1_countermeasure.yaml
+- debug.yaml
+- delete.yaml
+- json-patch.yaml
+- patch-strategic.yaml
+- patch.yaml
+- restart.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
