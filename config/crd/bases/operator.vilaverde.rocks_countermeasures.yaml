@@ -47,37 +47,45 @@ spec:
                   description: Action defines an action to be taken when the monitor
                     detects a condition that needs attention.
                   properties:
-                    command:
-                      description: 'TODO: how to handle containers with no shell??
-                        https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container
-                        https://prefetch.net/blog/2022/04/08/ways-to-debug-kubernetes-pods-without-shells/'
+                    debug:
+                      description: DebugSpec Patches a pod with an ephemeral container
+                        that can be used to troubleshoot
                       properties:
+                        args:
+                          items:
+                            type: string
+                          type: array
                         command:
                           items:
                             type: string
                           type: array
-                        targetObjectRef:
+                        image:
+                          type: string
+                        name:
+                          type: string
+                        podRef:
                           properties:
-                            apiVersion:
-                              description: '`apiVersion` is the version of the object'
-                              type: string
-                            kind:
-                              description: '`kind` is the type of object'
+                            container:
+                              description: '`container` is the name a container in
+                                a pod.'
                               type: string
                             name:
-                              description: '`name` is the name of the object.'
+                              description: '`name` is the name of the pod.'
                               type: string
                             namespace:
-                              description: '`namespace` is the namespace of the object.'
+                              description: '`namespace` is the namespace of the pod.'
                               type: string
                           required:
-                          - apiVersion
-                          - kind
                           - name
                           - namespace
                           type: object
+                        stdin:
+                          type: boolean
+                        tty:
+                          type: boolean
                       required:
-                      - targetObjectRef
+                      - image
+                      - podRef
                       type: object
                     delete:
                       properties:

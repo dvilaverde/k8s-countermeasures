@@ -37,6 +37,7 @@ import (
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers"
+	monv1 "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect/prometheus"
 	//+kubebuilder:scaffold:imports
@@ -109,6 +110,8 @@ func main() {
 		// LeaderElectionReleaseOnCancel: true,
 	}
 
+	// if the watch namespaces are comma delimited, split and trim to create
+	// a multi namespace cache.
 	if strings.Contains(watchNamespace, ",") {
 		managerOptions.Namespace = ""
 		namespaces := strings.Split(watchNamespace, ",")
@@ -133,7 +136,9 @@ func main() {
 	detectors[0] = promDetector
 	mgr.Add(promDetector)
 
-	reconciler := controllers.NewCounterMeasureReconciler(detectors, mgr.GetClient(), mgr.GetScheme())
+	monitor := monv1.NewMonitor(detectors, mgr)
+	log := ctrl.Log.WithName("controllers").WithName("countermeasure")
+	reconciler := controllers.NewCounterMeasureReconciler(monitor, mgr.GetClient(), mgr.GetScheme(), log)
 	if err = (reconciler).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create countermeasure controller")
 		os.Exit(1)

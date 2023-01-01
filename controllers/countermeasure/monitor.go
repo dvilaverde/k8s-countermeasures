@@ -6,7 +6,7 @@ import (
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
@@ -15,15 +15,15 @@ var (
 
 type CounterMeasureMonitor struct {
 	detectors []detect.Detector
-	client    client.Client
+	mgr       manager.Manager
 
 	monitored map[string]detect.CancelFunc
 }
 
-func NewMonitor(detectors []detect.Detector, client client.Client) *CounterMeasureMonitor {
+func NewMonitor(detectors []detect.Detector, mgr manager.Manager) *CounterMeasureMonitor {
 	return &CounterMeasureMonitor{
 		detectors: detectors,
-		client:    client,
+		mgr:       mgr,
 		monitored: make(map[string]detect.CancelFunc),
 	}
 }
@@ -37,7 +37,9 @@ func (c *CounterMeasureMonitor) StartMonitoring(countermeasure *operatorv1alpha1
 		if detect.Supports(&countermeasure.Spec) {
 			nsName := ToNamespaceName(&countermeasure.ObjectMeta)
 
-			handler, err := actions.CounterMeasureToActions(countermeasure, c.client)
+			// TODO invert the control here to have the Actions register with the monitor
+			// and use the mgr to create the action like mgr.NewAction(countermeasure)
+			handler, err := actions.CounterMeasureToActions(countermeasure, c.mgr)
 			if err != nil {
 				return err
 			}

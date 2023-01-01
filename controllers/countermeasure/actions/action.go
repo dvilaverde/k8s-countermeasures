@@ -8,6 +8,7 @@ import (
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type Action interface {
@@ -30,12 +31,13 @@ type BaseAction struct {
 }
 
 func CounterMeasureToActions(countermeasure *operatorv1alpha1.CounterMeasure,
-	client client.Client) (*ActionHandlerSequence, error) {
+	mgr manager.Manager) (*ActionHandlerSequence, error) {
 	seq := &ActionHandlerSequence{
 		actions: make([]Action, 0),
 		index:   0,
 	}
 
+	client := mgr.GetClient()
 	// TODO: refactor this into some form of action registry
 	for _, a := range countermeasure.Spec.Actions {
 		if a.Delete != nil {
@@ -50,6 +52,11 @@ func CounterMeasureToActions(countermeasure *operatorv1alpha1.CounterMeasure,
 			patch := NewPatchAction(client, *a.Patch)
 			patch.DryRun = countermeasure.Spec.DryRun
 			seq.actions = append(seq.actions, patch)
+		} else if a.Debug != nil {
+			debug, _ := NewDebugAction(mgr, *a.Debug)
+			// TODO handle ignored error
+			debug.DryRun = countermeasure.Spec.DryRun
+			seq.actions = append(seq.actions, debug)
 		}
 	}
 
@@ -57,19 +64,17 @@ func CounterMeasureToActions(countermeasure *operatorv1alpha1.CounterMeasure,
 }
 
 func ObjectKeyFromTemplate(namespaceTemplate, nameTemplate string, data ActionData) client.ObjectKey {
-	objectName := client.ObjectKey{}
+	return client.ObjectKey{
+		Namespace: evaluateTemplate(namespaceTemplate, data),
+		Name:      evaluateTemplate(nameTemplate, data),
+	}
+}
 
-	tmpl := template.Must(template.New("").Parse(namespaceTemplate))
+func evaluateTemplate(templateString string, data ActionData) string {
+	tmpl := template.Must(template.New("").Parse(templateString))
 	var buf bytes.Buffer
 	tmpl.Execute(&buf, data)
-	objectName.Namespace = buf.String()
-
-	tmpl = template.Must(template.New("").Parse(nameTemplate))
-	buf.Reset()
-	tmpl.Execute(&buf, data)
-	objectName.Name = buf.String()
-
-	return objectName
+	return buf.String()
 }
 
 func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels map[string]string) {
@@ -82,6 +87,7 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels ma
 	ctx := context.Background()
 	for _, action := range seq.actions {
 		err := action.Perform(ctx, actionData)
+		// TODO: introduce some retrying logic here
 		if err != nil {
 			break
 		}

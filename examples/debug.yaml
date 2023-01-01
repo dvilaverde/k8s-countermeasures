@@ -1,7 +1,7 @@
 apiVersion: operator.vilaverde.rocks/v1alpha1
 kind: CounterMeasure
 metadata:
-  name: delete-action
+  name: debug-action
 spec:
   prometheus:
     service:
@@ -11,10 +11,16 @@ spec:
       name: HTTP_404
       includePending: false
   actions:
-  - name: delete-pod
-    delete:
-      targetObjectRef: 
+  - name: debug-pod
+    debug:
+      name: debugger
+      command:
+      - "touch"
+      args:
+      - "/proc/1/root/iwashere.txt"
+      image: busybox:1.28
+      stdin: true
+      podRef: 
         name: "{{ .Labels.pod }}"
         namespace: "{{ .Labels.namespace }}"
-        kind: Pod
-        apiVersion: v1
+        container: main

@@ -1,7 +1,7 @@
 apiVersion: operator.vilaverde.rocks/v1alpha1
 kind: CounterMeasure
 metadata:
-  name: restart-tmp
+  name: restart-action
 spec:
   prometheus:
     service:

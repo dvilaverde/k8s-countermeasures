@@ -8,6 +8,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	cm "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
@@ -49,18 +50,7 @@ func (d *Detector) Start(ctx context.Context) error {
 	d.p8Services = make(map[string]*PrometheusService)
 	d.p8sToCallbacks = make(map[string][]callback)
 
-	ticker := time.NewTicker(d.interval)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				d.poll()
-			case <-ctx.Done():
-				ticker.Stop()
-				return
-			}
-		}
-	}()
+	go utilwait.Until(d.poll, d.interval, ctx.Done())
 
 	logger.Info("starting prometheus alert polling")
 
@@ -149,7 +139,7 @@ func cancelFunction(d *Detector, key types.NamespacedName) func() {
 	}
 }
 
-// poll fetach alerts from each prometheus service and notify the callbacks on any active alerts
+// poll fetch alerts from each prometheus service and notify the callbacks on any active alerts
 func (d *Detector) poll() {
 	d.callbackMux.Lock()
 	defer d.callbackMux.Unlock()

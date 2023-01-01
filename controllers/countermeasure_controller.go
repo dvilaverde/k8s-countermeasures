@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	batchv1 "k8s.io/api/batch/v1"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -33,7 +33,6 @@ import (
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	monv1 "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect"
 )
 
 const (
@@ -48,17 +47,20 @@ const (
 type CounterMeasureReconciler struct {
 	client.Client
 	Scheme  *runtime.Scheme
-	monitor *monv1.CounterMeasureMonitor
+	Monitor *monv1.CounterMeasureMonitor
+	Log     logr.Logger
 }
 
 // NewCounterMeasureReconciler create a new reconciler
-func NewCounterMeasureReconciler(detectors []detect.Detector,
+func NewCounterMeasureReconciler(monitor *monv1.CounterMeasureMonitor,
 	client client.Client,
-	scheme *runtime.Scheme) *CounterMeasureReconciler {
+	scheme *runtime.Scheme,
+	log logr.Logger) *CounterMeasureReconciler {
 	return &CounterMeasureReconciler{
 		Client:  client,
 		Scheme:  scheme,
-		monitor: monv1.NewMonitor(detectors, client),
+		Monitor: monitor,
+		Log:     log,
 	}
 }
 
@@ -139,7 +141,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		if valid {
-			err = r.monitor.StartMonitoring(counterMeasureCR)
+			err = r.Monitor.StartMonitoring(counterMeasureCR)
 			return ctrl.Result{}, err
 		}
 
@@ -182,6 +184,5 @@ func (r *CounterMeasureReconciler) isValid(ctx context.Context,
 func (r *CounterMeasureReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1alpha1.CounterMeasure{}).
-		Owns(&batchv1.Job{}). // Watch changes to any Job that this operator may have created
 		Complete(r)
 }

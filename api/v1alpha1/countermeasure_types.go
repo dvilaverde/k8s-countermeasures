@@ -45,6 +45,26 @@ type ServiceReference struct {
 	UseTls bool `json:"useTls,omitempty"`
 }
 
+type ObjectReference struct {
+	// `namespace` is the namespace of the object.
+	Namespace string `json:"namespace"`
+	// `name` is the name of the object.
+	Name string `json:"name"`
+	// `kind` is the type of object
+	Kind string `json:"kind"`
+	// `apiVersion` is the version of the object
+	ApiVersion string `json:"apiVersion"`
+}
+
+type PodReference struct {
+	// `namespace` is the namespace of the pod.
+	Namespace string `json:"namespace"`
+	// `name` is the name of the pod.
+	Name string `json:"name"`
+	// `container` is the name a container in a pod.
+	Container string `json:"container,omitempty"`
+}
+
 type DeploymentReference struct {
 	// `namespace` is the namespace of the deployment.
 	Namespace string `json:"namespace"`
@@ -74,10 +94,15 @@ type PrometheusAlertSpec struct {
 	IncludePending bool   `json:"includePending,omitempty"`
 }
 
-// CommandSpec command and arguments to execute in a container
-type CommandSpec struct {
-	TargetObjectRef ObjectReference `json:"targetObjectRef"`
-	Command         []string        `json:"command,omitempty"`
+// DebugSpec Patches a pod with an ephemeral container that can be used to troubleshoot
+type DebugSpec struct {
+	Name    string       `json:"name,omitempty"`
+	Command []string     `json:"command,omitempty"`
+	Args    []string     `json:"args,omitempty"`
+	Image   string       `json:"image"`
+	PodRef  PodReference `json:"podRef"`
+	StdIn   bool         `json:"stdin,omitempty"`
+	TTY     bool         `json:"tty,omitempty"`
 }
 
 // PatchSpec defines a patch operation on an existing Custom Resource
@@ -93,17 +118,6 @@ type DeleteSpec struct {
 
 type RestartSpec struct {
 	DeploymentRef DeploymentReference `json:"deploymentRef"`
-}
-
-type ObjectReference struct {
-	// `namespace` is the namespace of the object.
-	Namespace string `json:"namespace"`
-	// `name` is the name of the object.
-	Name string `json:"name"`
-	// `kind` is the type of object
-	Kind string `json:"kind"`
-	// `apiVersion` is the version of the object
-	ApiVersion string `json:"apiVersion"`
 }
 
 func (o ObjectReference) ToGroupVersionKind() (schema.GroupVersionKind, error) {
@@ -132,11 +146,7 @@ type Action struct {
 	// convienence.
 
 	// +kubebuilder:validation:Optional
-	// TODO: how to handle containers with no shell??
-	// https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container
-	// https://prefetch.net/blog/2022/04/08/ways-to-debug-kubernetes-pods-without-shells/
-	//
-	Command CommandSpec `json:"command,omitempty"`
+	Debug *DebugSpec `json:"debug,omitempty"`
 	// +kubebuilder:validation:Optional
 	Restart *RestartSpec `json:"restart,omitempty"`
 }
