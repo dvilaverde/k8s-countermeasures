@@ -31,16 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	monv1 "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
-)
-
-const (
-	ReasonSucceeded            = "Succeeded"
-	ReasonReconciling          = "Reconciling"
-	ReasonResourceNotAvailable = "ResourceNotAvailable"
-
-	TypeMonitoring = "Monitoring"
 )
 
 // CounterMeasureReconciler reconciles a CounterMeasure object
@@ -85,15 +77,14 @@ func NewCounterMeasureReconciler(monitor *monv1.CounterMeasureMonitor,
 func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	logger.Info("Reconciling CounterMeasure", "name", req.Name, "namespace", req.Namespace)
-
-	counterMeasureCR := &operatorv1alpha1.CounterMeasure{}
+	counterMeasureCR := &v1alpha1.CounterMeasure{}
 	err := r.Get(ctx, req.NamespacedName, counterMeasureCR)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// stop reconciliation since the Operator Custom Resource was not found
-			// TODO: Check that the NamespaceName is removed from the monitoring service
 			logger.Info("CounterMeasure resource not found", "name", req.Name, "namespace", req.Namespace)
+			// Notify the monitoring service to stop monitoring the NamespaceName
+			r.Monitor.StopMonitoring(req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
 
@@ -102,12 +93,18 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	if r.Monitor.IsAlreadyMonitored(counterMeasureCR) {
+		return ctrl.Result{}, nil
+	}
+
+	logger.Info("Reconciling CounterMeasure", "name", req.Name, "namespace", req.Namespace)
+
 	// Let's just set the status as Unknown when no status are available
 	if counterMeasureCR.Status.Conditions == nil || len(counterMeasureCR.Status.Conditions) == 0 {
 		meta.SetStatusCondition(&counterMeasureCR.Status.Conditions, metav1.Condition{
-			Type:    TypeMonitoring,
+			Type:    v1alpha1.TypeMonitoring,
 			Status:  metav1.ConditionUnknown,
-			Reason:  ReasonReconciling,
+			Reason:  v1alpha1.ReasonReconciling,
 			Message: "Starting reconciliation",
 		})
 
@@ -136,21 +133,39 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		logger.Info("Validating counter measure spec", "name", req.Name, "namespace", req.Namespace)
 
 		valid, err := r.isValid(ctx, counterMeasureCR)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		if valid {
+		if err == nil && valid {
 			err = r.Monitor.StartMonitoring(counterMeasureCR)
-			return ctrl.Result{}, err
+			if err == nil {
+
+				// TODO move this all to a re-usable method
+				meta.SetStatusCondition(&counterMeasureCR.Status.Conditions, metav1.Condition{
+					Type:    v1alpha1.TypeMonitoring,
+					Status:  metav1.ConditionTrue,
+					Reason:  v1alpha1.ReasonSucceeded,
+					Message: "Monitoring alerts",
+				})
+
+				counterMeasureCR.Status.LastStatus = v1alpha1.Monitoring
+				counterMeasureCR.Status.LastStatusChangeTime = &metav1.Time{Time: time.Now()}
+
+				if err = r.Status().Update(context.TODO(), counterMeasureCR); err != nil {
+					logger.Error(err, "failed to update countermeasure status")
+					return ctrl.Result{}, err
+				}
+
+				if err := r.Get(ctx, req.NamespacedName, counterMeasureCR); err != nil {
+					logger.Error(err, "failed to reload countermeasure")
+					return ctrl.Result{}, err
+				}
+			}
 		}
 
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 }
 
 func (r *CounterMeasureReconciler) isValid(ctx context.Context,
-	counterMeasure *operatorv1alpha1.CounterMeasure) (bool, error) {
+	counterMeasure *v1alpha1.CounterMeasure) (bool, error) {
 	logger := log.FromContext(ctx)
 	promSvc := counterMeasure.Spec.Prometheus.Service
 	serviceObject := &corev1.Service{}
@@ -159,9 +174,9 @@ func (r *CounterMeasureReconciler) isValid(ctx context.Context,
 	if err = r.Get(ctx, promSvc.GetNamespacedName(), serviceObject); err != nil {
 		if errors.IsNotFound(err) {
 			meta.SetStatusCondition(&counterMeasure.Status.Conditions, metav1.Condition{
-				Type:               TypeMonitoring,
+				Type:               v1alpha1.TypeMonitoring,
 				Status:             metav1.ConditionFalse,
-				Reason:             ReasonResourceNotAvailable,
+				Reason:             v1alpha1.ReasonResourceNotAvailable,
 				LastTransitionTime: metav1.NewTime(time.Now()),
 				Message:            fmt.Sprintf("service %v:%v not found", promSvc.Namespace, promSvc.Name),
 			})
@@ -183,6 +198,6 @@ func (r *CounterMeasureReconciler) isValid(ctx context.Context,
 // SetupWithManager sets up the controller with the Manager.
 func (r *CounterMeasureReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&operatorv1alpha1.CounterMeasure{}).
+		For(&v1alpha1.CounterMeasure{}).
 		Complete(r)
 }

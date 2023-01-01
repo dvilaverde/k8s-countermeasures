@@ -44,7 +44,6 @@ func NewDetector(p8ServiceBuilder Builder, interval time.Duration) *Detector {
 }
 
 func (d *Detector) Start(ctx context.Context) error {
-	// TODO: make the ticker configurable
 	logger := log.FromContext(ctx)
 
 	d.p8Services = make(map[string]*PrometheusService)
@@ -79,6 +78,21 @@ func (d *Detector) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler dete
 	d.callbackMux.Lock()
 	defer d.callbackMux.Unlock()
 
+	newCallback := callback{
+		name:      types.NamespacedName{Name: countermeasure.Name, Namespace: countermeasure.Namespace},
+		alertSpec: countermeasure.Spec.Prometheus.Alert.DeepCopy(),
+		handler:   handler,
+	}
+
+	// the register the alert to the synchronized map
+	if _, ok := d.p8sToCallbacks[p8SvcKey]; !ok {
+		d.p8sToCallbacks[p8SvcKey] = append(make([]callback, 0), newCallback)
+	} else {
+		// if a callback with this name already exists it needs to be removed first
+		d.deleteCallbackByName(p8SvcKey, newCallback.name)
+		d.p8sToCallbacks[p8SvcKey] = append(d.p8sToCallbacks[p8SvcKey], newCallback)
+	}
+
 	// use the promConfig to lookup the service
 	_, ok := d.p8Services[p8SvcKey]
 	if !ok {
@@ -89,21 +103,8 @@ func (d *Detector) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler dete
 		d.p8Services[p8SvcKey] = client
 	}
 
-	newCallback := callback{
-		name:      types.NamespacedName{Name: countermeasure.Name, Namespace: countermeasure.Namespace},
-		alertSpec: countermeasure.Spec.Prometheus.Alert.DeepCopy(),
-		handler:   handler,
-	}
-
-	// the register the alert to the synchronized map
-	if cb, ok := d.p8sToCallbacks[p8SvcKey]; !ok {
-		d.p8sToCallbacks[p8SvcKey] = append(make([]callback, 0), newCallback)
-	} else {
-		d.p8sToCallbacks[p8SvcKey] = append(cb, newCallback)
-	}
-
 	nsName := cm.ToNamespaceName(&countermeasure.ObjectMeta)
-	return cancelFunction(d, nsName), nil
+	return d.cancelFunction(nsName), nil
 }
 
 func (d *Detector) Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool {
@@ -111,30 +112,28 @@ func (d *Detector) Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool {
 }
 
 // cancelFunction create a cancel function
-func cancelFunction(d *Detector, key types.NamespacedName) func() {
+func (d *Detector) cancelFunction(key types.NamespacedName) func() {
 	return func() {
 		d.callbackMux.Lock()
 		defer d.callbackMux.Unlock()
 
-		for p8SvcKey, callbacks := range d.p8sToCallbacks {
-			idx := -1
-			for i, callback := range callbacks {
-				if callback.name == key {
-					idx = i
-					break
-				}
+		for p8SvcKey, _ := range d.p8sToCallbacks {
+			d.deleteCallbackByName(p8SvcKey, key)
+		}
+	}
+}
+
+// deleteCallbackByName delete a callback by callback name
+func (d *Detector) deleteCallbackByName(p8sServiceKey string, name types.NamespacedName) {
+	callbacks := d.p8sToCallbacks[p8sServiceKey]
+	for idx, callback := range callbacks {
+		if callback.name == name {
+			if len(d.p8sToCallbacks[p8sServiceKey]) == 1 {
+				delete(d.p8Services, p8sServiceKey)
+				delete(d.p8sToCallbacks, p8sServiceKey)
+			} else {
+				d.p8sToCallbacks[p8sServiceKey] = append(callbacks[:idx], callbacks[idx+1:]...)
 			}
-
-			if idx != -1 {
-
-				if len(d.p8sToCallbacks[p8SvcKey]) == 1 {
-					delete(d.p8Services, p8SvcKey)
-					delete(d.p8sToCallbacks, p8SvcKey)
-				} else {
-					d.p8sToCallbacks[p8SvcKey] = append(callbacks[:idx], callbacks[idx+1:]...)
-				}
-			}
-
 		}
 	}
 }
