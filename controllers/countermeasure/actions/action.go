@@ -3,17 +3,24 @@ package actions
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"reflect"
 	"text/template"
 
-	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var log = ctrl.Log.WithName("actions")
+
+type Registry struct {
+	builders map[reflect.Type]ActionBuilder
+}
 
 type Action interface {
 	Perform(context.Context, ActionData) error
@@ -34,35 +41,74 @@ type BaseAction struct {
 	client client.Client
 }
 
-func CounterMeasureToActions(countermeasure *operatorv1alpha1.CounterMeasure,
-	mgr manager.Manager) (*ActionHandlerSequence, error) {
+type Builder interface {
+	GetClient() client.Client
+	GetRestConfig() *rest.Config
+	GetRecorder() record.EventRecorder
+}
+type ActionBuilder func(v1alpha1.Action, Builder, bool) Action
+
+// Initialize registers all the known actions with the registry
+func (r *Registry) Initialize() {
+	r.RegisterAction(v1alpha1.DeleteSpec{}, func(spec v1alpha1.Action, b Builder, dryRun bool) Action {
+		return NewDeleteFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun}, *spec.Delete)
+	})
+
+	r.RegisterAction(v1alpha1.DebugSpec{}, func(spec v1alpha1.Action, b Builder, dryRun bool) Action {
+		cs, _ := kubernetes.NewForConfig(b.GetRestConfig())
+		// TODO handle ignored error
+		return NewDebugFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun}, cs.CoreV1(), *spec.Debug)
+	})
+
+	r.RegisterAction(v1alpha1.PatchSpec{}, func(spec v1alpha1.Action, b Builder, dryRun bool) Action {
+		return NewPatchFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun}, *spec.Patch)
+	})
+
+	r.RegisterAction(v1alpha1.RestartSpec{}, func(spec v1alpha1.Action, b Builder, dryRun bool) Action {
+		return NewRestartFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun}, *spec.Restart)
+	})
+}
+
+// RegisterAction register a new action with the registry
+func (r *Registry) RegisterAction(prototype interface{}, builder ActionBuilder) {
+
+	if r.builders == nil {
+		r.builders = make(map[reflect.Type]ActionBuilder)
+	}
+
+	r.builders[reflect.TypeOf(prototype)] = builder
+}
+
+// Create creates an implemenation of an action defined in the Action spec
+func (r *Registry) Create(builderArgs Builder, action v1alpha1.Action, dryRun bool) (Action, error) {
+	reflectType := reflect.ValueOf(action)
+	for i := 0; i < reflectType.NumField(); i++ {
+		valueField := reflectType.Field(i)
+		typeField := reflectType.Type().Field(i)
+		if valueField.Kind() == reflect.Pointer && !valueField.IsNil() {
+			if builder, ok := r.builders[typeField.Type.Elem()]; ok {
+				return builder(action, builderArgs, dryRun), nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("action '%s' is either mis-configured or using an unknown action type", action.Name)
+}
+
+// ConvertToHandler converts a countermeasure and all actions within into a handler for trigger events.
+func (r *Registry) ConvertToHandler(countermeasure *v1alpha1.CounterMeasure, builder Builder) (*ActionHandlerSequence, error) {
 	seq := &ActionHandlerSequence{
 		actions: make([]Action, 0),
 		index:   0,
 	}
 
-	client := mgr.GetClient()
-	// TODO: refactor this into some form of action registry
-	for _, a := range countermeasure.Spec.Actions {
-		if a.Delete != nil {
-			delete := NewDeleteAction(client, *a.Delete)
-			delete.DryRun = countermeasure.Spec.DryRun
-			seq.actions = append(seq.actions, delete)
-		} else if a.Restart != nil {
-			restart := NewRestartAction(client, *a.Restart)
-			restart.DryRun = countermeasure.Spec.DryRun
-			seq.actions = append(seq.actions, restart)
-		} else if a.Patch != nil {
-			patch := NewPatchAction(client, *a.Patch)
-			patch.DryRun = countermeasure.Spec.DryRun
-			seq.actions = append(seq.actions, patch)
-		} else if a.Debug != nil {
-			cs, _ := kubernetes.NewForConfig(mgr.GetConfig())
-			// TODO handle ignored error
-			debug := NewDebugAction(cs.CoreV1(), client, *a.Debug)
-			debug.DryRun = countermeasure.Spec.DryRun
-			seq.actions = append(seq.actions, debug)
+	for _, action := range countermeasure.Spec.Actions {
+		actionImpl, err := r.Create(builder, action, countermeasure.Spec.DryRun)
+		if err != nil {
+			return seq, err
 		}
+
+		seq.actions = append(seq.actions, actionImpl)
 	}
 
 	return seq, nil

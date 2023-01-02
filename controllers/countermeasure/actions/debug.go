@@ -19,10 +19,16 @@ type Debug struct {
 func NewDebugAction(coreV1Client clientCoreV1.CoreV1Interface,
 	client client.Client,
 	spec v1alpha1.DebugSpec) *Debug {
+	return NewDebugFromBase(BaseAction{
+		client: client,
+	}, coreV1Client, spec)
+}
+
+func NewDebugFromBase(base BaseAction,
+	coreV1Client clientCoreV1.CoreV1Interface,
+	spec v1alpha1.DebugSpec) *Debug {
 	return &Debug{
-		BaseAction: BaseAction{
-			client: client,
-		},
+		BaseAction:   base,
 		spec:         spec,
 		corev1Client: coreV1Client,
 	}

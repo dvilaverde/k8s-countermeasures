@@ -8,7 +8,7 @@ import (
 	"time"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,9 +68,9 @@ func Test_Notify(t *testing.T) {
 		return NewPrometheusService(p8Client.API()), nil
 	}
 
-	detector := NewDetector(builder, 1*time.Second)
-	detector.InjectClient(mockClient)
-	if err := detector.Start(ctx); err != nil {
+	p8Trigger := NewTrigger(builder, 1*time.Second)
+	p8Trigger.InjectClient(mockClient)
+	if err := p8Trigger.Start(ctx); err != nil {
 		t.Error(err)
 		return
 	}
@@ -95,8 +95,8 @@ func Test_Notify(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	assert.True(t, detector.Supports(&cm.Spec))
-	detector.NotifyOn(cm, detect.HandlerFunc(func(nn types.NamespacedName, m map[string]string) {
+	assert.True(t, p8Trigger.Supports(&cm.Spec))
+	p8Trigger.NotifyOn(cm, trigger.HandlerFunc(func(nn types.NamespacedName, m map[string]string) {
 		assert.Equal(t, 3, len(m))
 		wg.Done()
 	}))

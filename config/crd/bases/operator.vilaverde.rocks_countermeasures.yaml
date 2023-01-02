@@ -50,8 +50,8 @@ spec:
                     detects a condition that needs attention.
                   properties:
                     debug:
-                      description: DebugSpec Patches a pod with an ephemeral container
-                        that can be used to troubleshoot
+                      description: The following specs are high level operations for
+                        convienence.
                       properties:
                         args:
                           items:

@@ -17,11 +17,15 @@ type Restart struct {
 }
 
 func NewRestartAction(client client.Client, spec v1alpha1.RestartSpec) *Restart {
+	return NewRestartFromBase(BaseAction{
+		client: client,
+	}, spec)
+}
+
+func NewRestartFromBase(base BaseAction, spec v1alpha1.RestartSpec) *Restart {
 	return &Restart{
-		BaseAction: BaseAction{
-			client: client,
-		},
-		spec: spec,
+		BaseAction: base,
+		spec:       spec,
 	}
 }
 

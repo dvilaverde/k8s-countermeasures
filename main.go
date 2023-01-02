@@ -37,9 +37,8 @@ import (
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers"
-	monv1 "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect/prometheus"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger/prometheus"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -129,18 +128,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	detectors := make([]detect.Detector, 1)
+	triggers := make([]trigger.Trigger, 1)
 
 	// add all the supported detectors
-	promDetector := prometheus.NewDetector(prometheus.NewPrometheusClient, 15*time.Second) // TODO: make configurable
-	detectors[0] = promDetector
-	mgr.Add(promDetector)
-
-	monitor := monv1.NewMonitor(detectors, mgr)
+	p8sTrigger := prometheus.NewTrigger(prometheus.NewPrometheusClient, 15*time.Second) // TODO: make configurable
+	triggers[0] = p8sTrigger
+	mgr.Add(p8sTrigger)
 
 	reconciler := &controllers.CounterMeasureReconciler{
 		ReconcilerBase: controllers.NewFromManager(mgr, mgr.GetEventRecorderFor("countermeasure_controller")),
-		Monitor:        monitor,
+		Triggers:       triggers,
 		Log:            ctrl.Log.WithName("controllers").WithName("countermeasure"),
 	}
 	if err = (reconciler).SetupWithManager(mgr); err != nil {

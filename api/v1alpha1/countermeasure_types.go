@@ -142,17 +142,15 @@ type Action struct {
 	Name string `json:"name"`
 
 	// TODO: Add the following low-level operations:
-	//		Create
+	// Create *CreateSpec `json:"create,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	Delete *DeleteSpec `json:"delete,omitempty"`
-
 	// +kubebuilder:validation:Optional
 	Patch *PatchSpec `json:"patch,omitempty"`
 
-	// The following specs are higher level operations for
-	// convienence.
-
+	// The following specs are high level operations for convienence.
+	//
 	// +kubebuilder:validation:Optional
 	Debug *DebugSpec `json:"debug,omitempty"`
 	// +kubebuilder:validation:Optional

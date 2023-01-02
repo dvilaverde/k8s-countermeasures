@@ -3,22 +3,26 @@ package actions
 import (
 	"context"
 
-	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Delete struct {
 	BaseAction
-	spec operatorv1alpha1.DeleteSpec
+	spec v1alpha1.DeleteSpec
 }
 
-func NewDeleteAction(client client.Client, spec operatorv1alpha1.DeleteSpec) *Delete {
+func NewDeleteAction(client client.Client, spec v1alpha1.DeleteSpec) *Delete {
+	return NewDeleteFromBase(BaseAction{
+		client: client,
+	}, spec)
+}
+
+func NewDeleteFromBase(base BaseAction, spec v1alpha1.DeleteSpec) *Delete {
 	return &Delete{
-		BaseAction: BaseAction{
-			client: client,
-		},
-		spec: spec,
+		BaseAction: base,
+		spec:       spec,
 	}
 }
 

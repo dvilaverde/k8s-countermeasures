@@ -1,4 +1,4 @@
-package detect
+package trigger
 
 import (
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
@@ -17,7 +17,7 @@ func (handler HandlerFunc) OnDetection(name types.NamespacedName, labels map[str
 
 type CancelFunc func()
 
-type Detector interface {
+type Trigger interface {
 	NotifyOn(countermeasure v1alpha1.CounterMeasure, callback Handler) (CancelFunc, error)
 
 	Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool

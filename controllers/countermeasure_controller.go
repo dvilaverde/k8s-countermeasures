@@ -23,18 +23,28 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	monv1 "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
+	util "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/actions"
+	trigger "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
 )
+
+type counterMeasureHandle struct {
+	cancelFunc trigger.CancelFunc
+	generation int64
+}
 
 // CounterMeasureReconciler reconciles a CounterMeasure object
 type CounterMeasureReconciler struct {
 	ReconcilerBase
-	Monitor *monv1.CounterMeasureMonitor
-	Log     logr.Logger
+	Triggers       []trigger.Trigger
+	actionRegistry actions.Registry
+	monitored      map[string]counterMeasureHandle
+	Log            logr.Logger
 }
 
 // Refer to the following URL for the K8s API groups:
@@ -65,7 +75,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			// stop reconciliation since the Operator Custom Resource was not found
 			logger.Info("CounterMeasure resource not found", "name", req.Name, "namespace", req.Namespace)
 			// Notify the monitoring service to stop monitoring the NamespaceName
-			r.Monitor.StopMonitoring(req.NamespacedName)
+			r.stopMonitoring(req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
 
@@ -74,7 +84,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	if r.Monitor.IsAlreadyMonitored(counterMeasureCR) {
+	if r.isAlreadyMonitored(counterMeasureCR) {
 		return ctrl.Result{}, nil
 	}
 
@@ -94,7 +104,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return r.HandleError(ctx, counterMeasureCR, err)
 	}
 
-	err = r.Monitor.StartMonitoring(counterMeasureCR)
+	err = r.startMonitoring(counterMeasureCR)
 	if err != nil {
 		return r.HandleError(ctx, counterMeasureCR, err)
 	}
@@ -125,7 +135,77 @@ func (r *CounterMeasureReconciler) isValid(ctx context.Context, cm *v1alpha1.Cou
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CounterMeasureReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.monitored = make(map[string]counterMeasureHandle)
+	r.actionRegistry = actions.Registry{}
+	r.actionRegistry.Initialize()
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.CounterMeasure{}).
 		Complete(r)
+}
+
+func (r *CounterMeasureReconciler) isAlreadyMonitored(cm *v1alpha1.CounterMeasure) bool {
+
+	nsName := util.ToNamespaceName(&cm.ObjectMeta)
+	// if the generation hasn't changed from what we're monitoring then short return
+	if handle, ok := r.monitored[nsName.String()]; ok {
+		if handle.generation == cm.Generation {
+			return true
+		}
+	}
+
+	return false
+}
+
+// StartMonitoring will start monitoring a resource for events that require action
+func (r *CounterMeasureReconciler) startMonitoring(countermeasure *v1alpha1.CounterMeasure) error {
+	// if the generation hasn't changed from what we're monitoring then short return
+	if r.isAlreadyMonitored(countermeasure) {
+		return nil
+	}
+
+	found := false
+	nsName := util.ToNamespaceName(&countermeasure.ObjectMeta)
+
+	for _, trigger := range r.Triggers {
+		if trigger.Supports(&countermeasure.Spec) {
+
+			handler, err := r.actionRegistry.ConvertToHandler(countermeasure, r)
+			if err != nil {
+				return err
+			}
+
+			cancel, err := trigger.NotifyOn(*countermeasure, handler)
+			if err != nil {
+				return err
+			}
+
+			found = true
+			r.monitored[nsName.String()] = counterMeasureHandle{
+				cancelFunc: cancel,
+				generation: countermeasure.Generation,
+			}
+
+			break
+		}
+	}
+
+	if !found {
+		r.Log.Error(nil, "could not find a supported countermeasure trigger")
+	}
+
+	return nil
+}
+
+func (r *CounterMeasureReconciler) stopMonitoring(key types.NamespacedName) error {
+
+	if handle, ok := r.monitored[key.String()]; ok {
+		handle.cancelFunc()
+		// delete the key from this monitored map
+		delete(r.monitored, key.String())
+
+		r.Log.Info("stopped monitoring countermeasure", "name", key.Name, "namespace", key.Namespace)
+	}
+
+	return nil
 }

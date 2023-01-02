@@ -142,3 +142,7 @@ func (r *ReconcilerBase) GetClient() client.Client {
 func (r *ReconcilerBase) GetRecorder() record.EventRecorder {
 	return r.recorder
 }
+
+func (r *ReconcilerBase) GetRestConfig() *rest.Config {
+	return r.restConfig
+}

@@ -12,7 +12,7 @@ import (
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	cm "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/detect"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -21,10 +21,10 @@ import (
 type callback struct {
 	name      types.NamespacedName
 	alertSpec *v1alpha1.PrometheusAlertSpec
-	handler   detect.Handler
+	handler   trigger.Handler
 }
 
-type Detector struct {
+type Trigger struct {
 	logger     logr.Logger
 	client     client.Client
 	p8sBulider Builder
@@ -36,14 +36,14 @@ type Detector struct {
 	p8sToCallbacks map[string][]callback
 }
 
-func NewDetector(p8ServiceBuilder Builder, interval time.Duration) *Detector {
-	return &Detector{
+func NewTrigger(p8ServiceBuilder Builder, interval time.Duration) *Trigger {
+	return &Trigger{
 		interval:   interval,
 		p8sBulider: p8ServiceBuilder,
 	}
 }
 
-func (d *Detector) Start(ctx context.Context) error {
+func (d *Trigger) Start(ctx context.Context) error {
 	logger := log.FromContext(ctx)
 
 	d.p8Services = make(map[string]*PrometheusService)
@@ -58,19 +58,19 @@ func (d *Detector) Start(ctx context.Context) error {
 
 // InjectLogger injectable logger
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/runtime/inject/inject.go
-func (d *Detector) InjectLogger(logr logr.Logger) error {
+func (d *Trigger) InjectLogger(logr logr.Logger) error {
 	d.logger = logr
 	return nil
 }
 
 // InjectClient injectable client
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/runtime/inject/inject.go
-func (d *Detector) InjectClient(client client.Client) error {
+func (d *Trigger) InjectClient(client client.Client) error {
 	d.client = client
 	return nil
 }
 
-func (d *Detector) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler detect.Handler) (detect.CancelFunc, error) {
+func (d *Trigger) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler trigger.Handler) (trigger.CancelFunc, error) {
 	promConfig := countermeasure.Spec.Prometheus
 
 	p8SvcKey := cm.ServiceToKey(promConfig.Service)
@@ -107,12 +107,12 @@ func (d *Detector) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler dete
 	return d.cancelFunction(nsName), nil
 }
 
-func (d *Detector) Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool {
+func (d *Trigger) Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool {
 	return countermeasure != nil && countermeasure.Prometheus != nil
 }
 
 // cancelFunction create a cancel function
-func (d *Detector) cancelFunction(key types.NamespacedName) func() {
+func (d *Trigger) cancelFunction(key types.NamespacedName) func() {
 	return func() {
 		d.callbackMux.Lock()
 		defer d.callbackMux.Unlock()
@@ -124,7 +124,7 @@ func (d *Detector) cancelFunction(key types.NamespacedName) func() {
 }
 
 // deleteCallbackByName delete a callback by callback name
-func (d *Detector) deleteCallbackByName(p8sServiceKey string, name types.NamespacedName) {
+func (d *Trigger) deleteCallbackByName(p8sServiceKey string, name types.NamespacedName) {
 	callbacks := d.p8sToCallbacks[p8sServiceKey]
 	for idx, callback := range callbacks {
 		if callback.name == name {
@@ -139,7 +139,7 @@ func (d *Detector) deleteCallbackByName(p8sServiceKey string, name types.Namespa
 }
 
 // poll fetch alerts from each prometheus service and notify the callbacks on any active alerts
-func (d *Detector) poll() {
+func (d *Trigger) poll() {
 	d.callbackMux.Lock()
 	defer d.callbackMux.Unlock()
 
@@ -165,7 +165,7 @@ func (d *Detector) poll() {
 	}
 }
 
-func (d *Detector) createP8sClient(p8sService v1alpha1.PrometheusSpec) (*PrometheusService, error) {
+func (d *Trigger) createP8sClient(p8sService v1alpha1.PrometheusSpec) (*PrometheusService, error) {
 	serviceObject := &corev1.Service{}
 	if err := d.client.Get(context.Background(), p8sService.Service.GetNamespacedName(), serviceObject); err != nil {
 		return nil, err

@@ -22,11 +22,15 @@ type Patch struct {
 }
 
 func NewPatchAction(client client.Client, spec v1alpha1.PatchSpec) *Patch {
+	return NewPatchFromBase(BaseAction{
+		client: client,
+	}, spec)
+}
+
+func NewPatchFromBase(base BaseAction, spec v1alpha1.PatchSpec) *Patch {
 	return &Patch{
-		BaseAction: BaseAction{
-			client: client,
-		},
-		spec: spec,
+		BaseAction: base,
+		spec:       spec,
 	}
 }
 
