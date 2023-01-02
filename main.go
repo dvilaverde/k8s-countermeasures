@@ -137,8 +137,12 @@ func main() {
 	mgr.Add(promDetector)
 
 	monitor := monv1.NewMonitor(detectors, mgr)
-	log := ctrl.Log.WithName("controllers").WithName("countermeasure")
-	reconciler := controllers.NewCounterMeasureReconciler(monitor, mgr.GetClient(), mgr.GetScheme(), log)
+
+	reconciler := &controllers.CounterMeasureReconciler{
+		ReconcilerBase: controllers.NewFromManager(mgr, mgr.GetEventRecorderFor("countermeasure_controller")),
+		Monitor:        monitor,
+		Log:            ctrl.Log.WithName("controllers").WithName("countermeasure"),
+	}
 	if err = (reconciler).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create countermeasure controller")
 		os.Exit(1)

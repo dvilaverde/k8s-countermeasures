@@ -185,6 +185,7 @@ type StatusType string
 const (
 	Monitoring StatusType = "Monitoring"
 	Applying   StatusType = "Applying"
+	Error      StatusType = "Error"
 )
 
 //+kubebuilder:object:root=true
