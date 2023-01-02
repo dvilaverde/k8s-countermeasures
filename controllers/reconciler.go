@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -95,6 +96,41 @@ func (r *ReconcilerBase) HandleOutcome(ctx context.Context, cm *v1alpha1.Counter
 	}
 
 	return r.HandleSuccess(ctx, cm)
+}
+
+// MarkInitializing mark this countermeasure with the transient initializing state
+func (r *ReconcilerBase) MarkInitializing(ctx context.Context, cm *v1alpha1.CounterMeasure) error {
+	log := log.FromContext(ctx)
+	if cm.Status.Conditions == nil || len(cm.Status.Conditions) == 0 {
+		meta.SetStatusCondition(&cm.Status.Conditions, metav1.Condition{
+			Type:               v1alpha1.TypeMonitoring,
+			Status:             metav1.ConditionUnknown,
+			ObservedGeneration: cm.Generation,
+			Reason:             v1alpha1.ReasonReconciling,
+			Message:            "Initializing",
+		})
+
+		cm.Status.LastStatus = v1alpha1.Unknown
+		cm.Status.LastStatusChangeTime = &metav1.Time{Time: time.Now()}
+
+		if err := r.GetClient().Status().Update(ctx, cm); err != nil {
+			log.Error(err, "failed to update countermeasure status")
+			return err
+		}
+
+		// Let's re-fetch the countermeasure Custom Resource after update the status
+		// so that we have the latest state of the resource on the cluster and we will avoid
+		// raise the issue "the object has been modified, please apply
+		// your changes to the latest version and try again" which would re-trigger the reconciliation
+		// if we try to update it again in the following operations
+		ns := types.NamespacedName{Namespace: cm.ObjectMeta.Namespace, Name: cm.ObjectMeta.Name}
+		if err := r.client.Get(ctx, ns, cm); err != nil {
+			log.Error(err, "failed to reload countermeasure")
+			return err
+		}
+	}
+
+	return nil
 }
 
 // GetClient returns the OperatorSDK client

@@ -91,6 +91,8 @@ func (c *CounterMeasureMonitor) StopMonitoring(key types.NamespacedName) error {
 		handle.cancelFunc()
 		// delete the key from this monitored map
 		delete(c.monitored, key.String())
+
+		log.Info("stopped monitoring countermeasure", "name", key.Name, "namespace", key.Namespace)
 	}
 
 	return nil

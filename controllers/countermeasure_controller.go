@@ -23,8 +23,6 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -83,29 +81,9 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	logger.Info("Reconciling CounterMeasure", "name", req.Name, "namespace", req.Namespace)
 
 	// Let's just set the status as Unknown when no status are available
-	if counterMeasureCR.Status.Conditions == nil || len(counterMeasureCR.Status.Conditions) == 0 {
-		meta.SetStatusCondition(&counterMeasureCR.Status.Conditions, metav1.Condition{
-			Type:               v1alpha1.TypeMonitoring,
-			Status:             metav1.ConditionUnknown,
-			ObservedGeneration: counterMeasureCR.Generation,
-			Reason:             v1alpha1.ReasonReconciling,
-			Message:            "Starting reconciliation",
-		})
-
-		if err = r.client.Status().Update(ctx, counterMeasureCR); err != nil {
-			logger.Error(err, "failed to update countermeasure status")
-			return ctrl.Result{}, err
-		}
-
-		// Let's re-fetch the countermeasure Custom Resource after update the status
-		// so that we have the latest state of the resource on the cluster and we will avoid
-		// raise the issue "the object has been modified, please apply
-		// your changes to the latest version and try again" which would re-trigger the reconciliation
-		// if we try to update it again in the following operations
-		if err := r.client.Get(ctx, req.NamespacedName, counterMeasureCR); err != nil {
-			logger.Error(err, "failed to reload countermeasure")
-			return ctrl.Result{}, err
-		}
+	err = r.MarkInitializing(ctx, counterMeasureCR)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// TODO: if a Resource is created, make sure this is called so there will be an owner relationship
@@ -117,8 +95,8 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	err = r.Monitor.StartMonitoring(counterMeasureCR)
-	if err == nil {
-
+	if err != nil {
+		return r.HandleError(ctx, counterMeasureCR, err)
 	}
 
 	return r.HandleSuccess(ctx, counterMeasureCR)
