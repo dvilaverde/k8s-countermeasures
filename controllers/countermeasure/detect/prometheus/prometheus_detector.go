@@ -117,7 +117,7 @@ func (d *Detector) cancelFunction(key types.NamespacedName) func() {
 		d.callbackMux.Lock()
 		defer d.callbackMux.Unlock()
 
-		for p8SvcKey, _ := range d.p8sToCallbacks {
+		for p8SvcKey := range d.p8sToCallbacks {
 			d.deleteCallbackByName(p8SvcKey, key)
 		}
 	}

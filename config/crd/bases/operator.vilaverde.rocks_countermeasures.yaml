@@ -12,6 +12,8 @@ spec:
     kind: CounterMeasure
     listKind: CounterMeasureList
     plural: countermeasures
+    shortNames:
+    - ctm
     singular: countermeasure
   scope: Namespaced
   versions:

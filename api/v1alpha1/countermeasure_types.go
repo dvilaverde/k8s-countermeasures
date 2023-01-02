@@ -194,6 +194,8 @@ const (
 // CounterMeasure is the Schema for the countermeasures API
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.lastStatus`
 // +kubebuilder:printcolumn:name="Status Last Changed",type=string,JSONPath=`.status.lastStatusChangeTime`
+// +kubebuilder:resource:shortName=ctm
+// +kubebuilder:singular=countermeasure
 type CounterMeasure struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
