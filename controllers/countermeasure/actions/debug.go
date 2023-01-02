@@ -2,10 +2,12 @@ package actions
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	rand "k8s.io/apimachinery/pkg/util/rand"
 	clientCoreV1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -58,11 +60,16 @@ func (d *Debug) Perform(ctx context.Context, actionData ActionData) error {
 	}
 
 	if addDebugContainer {
+		// Ephemeral Container Name is requried, so generate one if not provided
+		name := d.spec.Name
+		if len(name) == 0 {
+			name = fmt.Sprintf("debug-%s", rand.String(5))
+		}
+
 		containers := []corev1.EphemeralContainer{
 			{
 				EphemeralContainerCommon: corev1.EphemeralContainerCommon{
-					// TODO: if d.spec.Name is empty or nil generate a name, is there a util for that?
-					Name:                     d.spec.Name,
+					Name:                     name,
 					Image:                    d.spec.Image,
 					ImagePullPolicy:          corev1.PullIfNotPresent,
 					Command:                  d.spec.Command,
