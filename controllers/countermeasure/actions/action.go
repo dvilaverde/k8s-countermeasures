@@ -26,7 +26,7 @@ type Registry struct {
 type Action interface {
 	Perform(context.Context, ActionData) error
 	GetName() string
-	GetTargetObjectName() string
+	GetTargetObjectName(ActionData) string
 }
 
 type ActionData struct {
@@ -57,8 +57,11 @@ func (b *BaseAction) GetName() string {
 	return b.Name
 }
 
-func (b *BaseAction) createObjectName(kind, namespace, name string) string {
-	return fmt.Sprintf("%s: '%s/%s'", strings.ToLower(kind), namespace, name)
+// createObjectName evaluate the template (if any) in name and namespace to produce an object name.
+func (b *BaseAction) createObjectName(kind, namespace, name string, data ActionData) string {
+	return fmt.Sprintf("%s: '%s/%s'", strings.ToLower(kind),
+		evaluateTemplate(namespace, data),
+		evaluateTemplate(name, data))
 }
 
 // Initialize registers all the known actions with the registry
@@ -92,7 +95,7 @@ func (r *Registry) RegisterAction(prototype interface{}, builder ActionBuilder) 
 	r.builders[reflect.TypeOf(prototype)] = builder
 }
 
-// Create creates an implemenation of an action defined in the Action spec
+// Create creates an implementation of an action defined in the Action spec
 func (r *Registry) Create(builderArgs Builder, action v1alpha1.Action, dryRun bool) (Action, error) {
 	reflectType := reflect.ValueOf(action)
 	for i := 0; i < reflectType.NumField(); i++ {
@@ -149,7 +152,7 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels ma
 	cm := seq.countermeasure
 	if seq.index > 0 {
 		// This sequence of actions are already in progress, likely from a previous alert firing
-		// so don't handl this now. Log an event though so we know
+		// so don't handle this now. Log an event though so we know
 		seq.recorder.Event(cm, "Warning", "Skipping",
 			fmt.Sprintf("Skipping actions for '%s' previous execution still in progress and currently at action %d.",
 				cm.ObjectMeta.Name,
@@ -172,19 +175,14 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels ma
 			break
 		}
 
-		// advance the index so we know what action we're at
+		// advance the index, so we know what action we're at
 		seq.index++
 
-		var msg string
+		msg := fmt.Sprintf("Alert detected, action '%s' taken on '%s'",
+			action.GetName(),
+			action.GetTargetObjectName(actionData))
 		if cm.Spec.DryRun {
-			msg = fmt.Sprintf("Alert detected, action '%s' taken on %s. DryRun=%t",
-				action.GetName(),
-				action.GetTargetObjectName(),
-				cm.Spec.DryRun)
-		} else {
-			msg = fmt.Sprintf("Alert detected, action '%s' taken on %s",
-				action.GetName(),
-				action.GetTargetObjectName())
+			msg = fmt.Sprintf("%s. DryRun=true", msg)
 		}
 
 		seq.recorder.Event(cm, "Normal", "AlertFired", msg)

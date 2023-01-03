@@ -34,9 +34,9 @@ func NewPatchFromBase(base BaseAction, spec v1alpha1.PatchSpec) *Patch {
 	}
 }
 
-func (p *Patch) GetTargetObjectName() string {
+func (p *Patch) GetTargetObjectName(data ActionData) string {
 	target := p.spec.TargetObjectRef
-	return p.createObjectName(target.Kind, target.Namespace, target.Name)
+	return p.createObjectName(target.Kind, target.Namespace, target.Name, data)
 }
 
 // Perform will apply the patch to the object

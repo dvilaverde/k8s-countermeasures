@@ -36,8 +36,8 @@ func NewDebugFromBase(base BaseAction,
 	}
 }
 
-func (d *Debug) GetTargetObjectName() string {
-	return d.createObjectName("pod", d.spec.PodRef.Namespace, d.spec.PodRef.Name)
+func (d *Debug) GetTargetObjectName(data ActionData) string {
+	return d.createObjectName("pod", d.spec.PodRef.Namespace, d.spec.PodRef.Name, data)
 }
 
 func (d *Debug) Perform(ctx context.Context, actionData ActionData) error {

@@ -25,4 +25,4 @@ kubectl -n ns-custom apply -f $SCRIPT_DIR/bad_app/monitored_app.yaml
 # but you'll need the pod ip address
 #
 sleep 5
-./run_http_load.sh
+$SCRIPT_DIR/run_http_load.sh

@@ -79,13 +79,13 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return ctrl.Result{}, nil
 		}
 
-		// could not read the CounterMeasure resource, throw error so it can be requeued.
+		// could not read the CounterMeasure resource, throw error, so it can be re-queued.
 		logger.Error(err, "Error getting CounterMeasure resource object")
 		return ctrl.Result{}, err
 	}
 
 	if r.isAlreadyMonitored(counterMeasureCR) {
-		return ctrl.Result{}, nil
+		return r.HandleSuccess(ctx, counterMeasureCR)
 	}
 
 	logger.Info("Reconciling CounterMeasure", "name", req.Name, "namespace", req.Namespace)

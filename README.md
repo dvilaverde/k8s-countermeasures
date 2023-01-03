@@ -42,6 +42,6 @@ To debug the controller locally against a running K8s cluster, add this entry to
 ```
 
 then enable port forwarding from the development host to the promtheus service:
-```
+```bash
 kubectl -n monitoring port-forward service/prometheus-operated 9090:9090
 ```

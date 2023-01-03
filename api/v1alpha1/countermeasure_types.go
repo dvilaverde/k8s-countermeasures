@@ -88,7 +88,7 @@ func (s *ServiceReference) GetNamespacedName() types.NamespacedName {
 	}
 }
 
-// Prometheus definition of a monitor for a prometheus service in the K8s cluster
+// PrometheusSpec definition of a monitor for a prometheus service in the K8s cluster
 type PrometheusSpec struct {
 	Service *ServiceReference `json:"service"`
 	// TODO: support auth (basic and TLS) using secret ref
@@ -128,7 +128,7 @@ type RestartSpec struct {
 	DeploymentRef DeploymentReference `json:"deploymentRef"`
 }
 
-func (o ObjectReference) ToGroupVersionKind() (schema.GroupVersionKind, error) {
+func (o *ObjectReference) ToGroupVersionKind() (schema.GroupVersionKind, error) {
 	gv, err := schema.ParseGroupVersion(o.ApiVersion)
 	if err != nil {
 		return schema.GroupVersionKind{}, err
@@ -149,7 +149,7 @@ type Action struct {
 	// +kubebuilder:validation:Optional
 	Patch *PatchSpec `json:"patch,omitempty"`
 
-	// The following specs are high level operations for convienence.
+	// The following specs are high level operations for convenience.
 	//
 	// +kubebuilder:validation:Optional
 	Debug *DebugSpec `json:"debug,omitempty"`

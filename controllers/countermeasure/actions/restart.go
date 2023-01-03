@@ -29,8 +29,8 @@ func NewRestartFromBase(base BaseAction, spec v1alpha1.RestartSpec) *Restart {
 	}
 }
 
-func (r *Restart) GetTargetObjectName() string {
-	return r.createObjectName("deployment", r.spec.DeploymentRef.Namespace, r.spec.DeploymentRef.Name)
+func (r *Restart) GetTargetObjectName(data ActionData) string {
+	return r.createObjectName("deployment", r.spec.DeploymentRef.Namespace, r.spec.DeploymentRef.Name, data)
 }
 
 // Perform will apply the restart patch to the deployment

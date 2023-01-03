@@ -26,9 +26,9 @@ func NewDeleteFromBase(base BaseAction, spec v1alpha1.DeleteSpec) *Delete {
 	}
 }
 
-func (d *Delete) GetTargetObjectName() string {
+func (d *Delete) GetTargetObjectName(data ActionData) string {
 	target := d.spec.TargetObjectRef
-	return d.createObjectName(target.Kind, target.Namespace, target.Name)
+	return d.createObjectName(target.Kind, target.Namespace, target.Name, data)
 }
 
 func (d *Delete) Perform(ctx context.Context, actionData ActionData) error {

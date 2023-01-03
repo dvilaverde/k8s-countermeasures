@@ -54,7 +54,7 @@ spec:
                   properties:
                     debug:
                       description: The following specs are high level operations for
-                        convienence.
+                        convenience.
                       properties:
                         args:
                           items:
@@ -181,8 +181,8 @@ spec:
                 default: false
                 type: boolean
               prometheus:
-                description: Prometheus definition of a monitor for a prometheus service
-                  in the K8s cluster
+                description: PrometheusSpec definition of a monitor for a prometheus
+                  service in the K8s cluster
                 properties:
                   alert:
                     description: PrometheusAlertSpec definition of a monitored prometheus

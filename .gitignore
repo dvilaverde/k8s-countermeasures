@@ -18,3 +18,7 @@ bin/
 
 # exclude the debug binary
 __debug_bin
+
+# exclude IntelliJ workspace
+.idea/
+.DS_Store
