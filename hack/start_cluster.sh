@@ -1,6 +1,6 @@
-    #!/bin/zsh
+#!/bin/zsh
 
-    set -e
+set -e
 
 SCRIPT_DIR=${0:a:h}
 
