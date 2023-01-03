@@ -1,6 +1,6 @@
-#!/bin/zsh
+    #!/bin/zsh
 
-set -e
+    set -e
 
 SCRIPT_DIR=${0:a:h}
 
@@ -25,6 +25,4 @@ kubectl -n ns-custom apply -f $SCRIPT_DIR/bad_app/monitored_app.yaml
 # but you'll need the pod ip address
 #
 sleep 5
-POD_IP=$(kubectl -n ns-custom get pod -l app.kubernetes.io/name=monitored-app -o jsonpath='{.items[0].status.podIP}')
-POD_ADDRESS="$(echo $POD_IP | tr . -).default.pod.cluster.local:8080"
-kubectl run hey --rm -i --image demisto/rakyll-hey:1.0.0.40629 -- hey -m GET http://$POD_ADDRESS/err
+./run_http_load.sh

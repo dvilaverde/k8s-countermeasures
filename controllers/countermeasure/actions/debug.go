@@ -36,6 +36,10 @@ func NewDebugFromBase(base BaseAction,
 	}
 }
 
+func (d *Debug) GetTargetObjectName() string {
+	return d.createObjectName("pod", d.spec.PodRef.Namespace, d.spec.PodRef.Name)
+}
+
 func (d *Debug) Perform(ctx context.Context, actionData ActionData) error {
 	targetPod := d.spec.PodRef
 	podName := ObjectKeyFromTemplate(targetPod.Namespace, targetPod.Name, actionData)
@@ -83,14 +87,16 @@ func (d *Debug) Perform(ctx context.Context, actionData ActionData) error {
 		}
 
 		pod.Spec.EphemeralContainers = append(pod.Spec.EphemeralContainers, containers...)
+
+		opts := metav1.UpdateOptions{}
+		if d.DryRun {
+			opts.DryRun = []string{metav1.DryRunAll}
+		}
+
 		_, err = d.corev1Client.
 			Pods(podName.Namespace).
-			UpdateEphemeralContainers(context.TODO(), podName.Name, pod, metav1.UpdateOptions{})
-
-		if err != nil {
-			return err
-		}
+			UpdateEphemeralContainers(ctx, podName.Name, pod, opts)
 	}
 
-	return nil
+	return err
 }

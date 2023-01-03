@@ -34,6 +34,11 @@ func NewPatchFromBase(base BaseAction, spec v1alpha1.PatchSpec) *Patch {
 	}
 }
 
+func (p *Patch) GetTargetObjectName() string {
+	target := p.spec.TargetObjectRef
+	return p.createObjectName(target.Kind, target.Namespace, target.Name)
+}
+
 // Perform will apply the patch to the object
 func (p *Patch) Perform(ctx context.Context, actionData ActionData) error {
 
@@ -66,7 +71,7 @@ func (p *Patch) Perform(ctx context.Context, actionData ActionData) error {
 	if p.DryRun {
 		opts = append(opts, client.DryRunAll)
 	}
-	// TODO: update the status of the CR
+
 	return p.client.Patch(ctx, object, patch, opts...)
 }
 

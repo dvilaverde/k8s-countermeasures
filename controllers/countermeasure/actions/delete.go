@@ -26,6 +26,11 @@ func NewDeleteFromBase(base BaseAction, spec v1alpha1.DeleteSpec) *Delete {
 	}
 }
 
+func (d *Delete) GetTargetObjectName() string {
+	target := d.spec.TargetObjectRef
+	return d.createObjectName(target.Kind, target.Namespace, target.Name)
+}
+
 func (d *Delete) Perform(ctx context.Context, actionData ActionData) error {
 	target := d.spec.TargetObjectRef
 	gvk, err := target.ToGroupVersionKind()
@@ -46,10 +51,5 @@ func (d *Delete) Perform(ctx context.Context, actionData ActionData) error {
 		err = d.client.Delete(ctx, object, opts...)
 	}
 
-	if err != nil {
-		return err
-	}
-
-	// TODO: update the status of the CR
-	return nil
+	return err
 }

@@ -18,6 +18,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.dryRun
+      name: Dry Run
+      type: boolean
     - jsonPath: .status.lastStatus
       name: Status
       type: string
@@ -175,6 +178,7 @@ spec:
                   type: object
                 type: array
               dryRun:
+                default: false
                 type: boolean
               prometheus:
                 description: Prometheus definition of a monitor for a prometheus service

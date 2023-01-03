@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"text/template"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
@@ -24,6 +25,8 @@ type Registry struct {
 
 type Action interface {
 	Perform(context.Context, ActionData) error
+	GetName() string
+	GetTargetObjectName() string
 }
 
 type ActionData struct {
@@ -31,13 +34,15 @@ type ActionData struct {
 }
 
 type ActionHandlerSequence struct {
-	actions []Action
-	index   int
+	actions        []Action
+	recorder       record.EventRecorder
+	countermeasure *v1alpha1.CounterMeasure
+	index          int
 }
 
 type BaseAction struct {
 	DryRun bool
-
+	Name   string
 	client client.Client
 }
 
@@ -48,24 +53,32 @@ type Builder interface {
 }
 type ActionBuilder func(v1alpha1.Action, Builder, bool) Action
 
+func (b *BaseAction) GetName() string {
+	return b.Name
+}
+
+func (b *BaseAction) createObjectName(kind, namespace, name string) string {
+	return fmt.Sprintf("%s: '%s/%s'", strings.ToLower(kind), namespace, name)
+}
+
 // Initialize registers all the known actions with the registry
 func (r *Registry) Initialize() {
 	r.RegisterAction(v1alpha1.DeleteSpec{}, func(spec v1alpha1.Action, b Builder, dryRun bool) Action {
-		return NewDeleteFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun}, *spec.Delete)
+		return NewDeleteFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun, Name: spec.Name}, *spec.Delete)
 	})
 
 	r.RegisterAction(v1alpha1.DebugSpec{}, func(spec v1alpha1.Action, b Builder, dryRun bool) Action {
 		cs, _ := kubernetes.NewForConfig(b.GetRestConfig())
 		// TODO handle ignored error
-		return NewDebugFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun}, cs.CoreV1(), *spec.Debug)
+		return NewDebugFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun, Name: spec.Name}, cs.CoreV1(), *spec.Debug)
 	})
 
 	r.RegisterAction(v1alpha1.PatchSpec{}, func(spec v1alpha1.Action, b Builder, dryRun bool) Action {
-		return NewPatchFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun}, *spec.Patch)
+		return NewPatchFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun, Name: spec.Name}, *spec.Patch)
 	})
 
 	r.RegisterAction(v1alpha1.RestartSpec{}, func(spec v1alpha1.Action, b Builder, dryRun bool) Action {
-		return NewRestartFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun}, *spec.Restart)
+		return NewRestartFromBase(BaseAction{client: b.GetClient(), DryRun: dryRun, Name: spec.Name}, *spec.Restart)
 	})
 }
 
@@ -98,8 +111,10 @@ func (r *Registry) Create(builderArgs Builder, action v1alpha1.Action, dryRun bo
 // ConvertToHandler converts a countermeasure and all actions within into a handler for trigger events.
 func (r *Registry) ConvertToHandler(countermeasure *v1alpha1.CounterMeasure, builder Builder) (*ActionHandlerSequence, error) {
 	seq := &ActionHandlerSequence{
-		actions: make([]Action, 0),
-		index:   0,
+		actions:        make([]Action, 0),
+		recorder:       builder.GetRecorder(),
+		countermeasure: countermeasure,
+		index:          0,
 	}
 
 	for _, action := range countermeasure.Spec.Actions {
@@ -114,6 +129,7 @@ func (r *Registry) ConvertToHandler(countermeasure *v1alpha1.CounterMeasure, bui
 	return seq, nil
 }
 
+// ObjectKeyFromTemplate create a client.ObjectKey from a namespace and name template.
 func ObjectKeyFromTemplate(namespaceTemplate, nameTemplate string, data ActionData) client.ObjectKey {
 	return client.ObjectKey{
 		Namespace: evaluateTemplate(namespaceTemplate, data),
@@ -128,7 +144,17 @@ func evaluateTemplate(templateString string, data ActionData) string {
 	return buf.String()
 }
 
+// OnDetection called when an alert condition is detected.
 func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels map[string]string) {
+	cm := seq.countermeasure
+	if seq.index > 0 {
+		// This sequence of actions are already in progress, likely from a previous alert firing
+		// so don't handl this now. Log an event though so we know
+		seq.recorder.Event(cm, "Warning", "Skipping",
+			fmt.Sprintf("Skipping actions for '%s' previous execution still in progress and currently at action %d.",
+				cm.ObjectMeta.Name,
+				seq.index))
+	}
 
 	// create a struct that will be used as data for the templates in the custom resource
 	actionData := ActionData{
@@ -136,13 +162,33 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels ma
 	}
 
 	ctx := context.Background()
-	for _, action := range seq.actions {
+	for _, action := range seq.actions[seq.index:] {
 		err := action.Perform(ctx, actionData)
 
 		// TODO: introduce some retrying logic here
 		if err != nil {
+			seq.recorder.Event(cm, "Warning", "ActionError", err.Error())
 			log.Error(err, "action execution error", "name", ns.Name, "namespace", ns.Namespace)
 			break
 		}
+
+		// advance the index so we know what action we're at
+		seq.index++
+
+		var msg string
+		if cm.Spec.DryRun {
+			msg = fmt.Sprintf("Alert detected, action '%s' taken on %s. DryRun=%t",
+				action.GetName(),
+				action.GetTargetObjectName(),
+				cm.Spec.DryRun)
+		} else {
+			msg = fmt.Sprintf("Alert detected, action '%s' taken on %s",
+				action.GetName(),
+				action.GetTargetObjectName())
+		}
+
+		seq.recorder.Event(cm, "Normal", "AlertFired", msg)
 	}
+
+	seq.index = 0
 }

@@ -164,7 +164,8 @@ type CounterMeasureSpec struct {
 
 	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
 	Actions    []Action        `json:"actions"`
-	DryRun     bool            `json:"dryRun,omitempty"`
+	// +kubebuilder:default=false
+	DryRun bool `json:"dryRun,omitempty"`
 }
 
 // CounterMeasureStatus defines the observed state of CounterMeasure
@@ -191,6 +192,7 @@ const (
 //+kubebuilder:subresource:status
 
 // CounterMeasure is the Schema for the countermeasures API
+// +kubebuilder:printcolumn:name="Dry Run",type=boolean,JSONPath=`.spec.dryRun`
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.lastStatus`
 // +kubebuilder:printcolumn:name="Status Last Changed",type=string,JSONPath=`.status.lastStatusChangeTime`
 // +kubebuilder:resource:shortName=ctm

@@ -29,6 +29,10 @@ func NewRestartFromBase(base BaseAction, spec v1alpha1.RestartSpec) *Restart {
 	}
 }
 
+func (r *Restart) GetTargetObjectName() string {
+	return r.createObjectName("deployment", r.spec.DeploymentRef.Namespace, r.spec.DeploymentRef.Name)
+}
+
 // Perform will apply the restart patch to the deployment
 func (r *Restart) Perform(ctx context.Context, actionData ActionData) error {
 	object := &unstructured.Unstructured{}
@@ -56,10 +60,5 @@ func (r *Restart) Perform(ctx context.Context, actionData ActionData) error {
 		err = r.client.Patch(ctx, object, patch, opts...)
 	}
 
-	if err != nil {
-		return err
-	}
-
-	// TODO: update the status of the CR
-	return nil
+	return err
 }
