@@ -178,7 +178,7 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels ma
 		// advance the index, so we know what action we're at
 		seq.index++
 
-		msg := fmt.Sprintf("Alert detected, action '%s' taken on '%s'",
+		msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
 			action.GetName(),
 			action.GetTargetObjectName(actionData))
 		if cm.Spec.DryRun {
