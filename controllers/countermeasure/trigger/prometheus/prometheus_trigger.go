@@ -97,7 +97,7 @@ func (d *Trigger) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler trigg
 	// use the promConfig to lookup the service
 	_, ok := d.p8Services[p8SvcKey]
 	if !ok {
-		client, err := d.createP8sClient(*promConfig)
+		client, err := d.createP8sClient(&countermeasure)
 		if err != nil {
 			return func() {}, err
 		}
@@ -166,13 +166,15 @@ func (d *Trigger) poll() {
 	}
 }
 
-func (d *Trigger) createP8sClient(p8sService v1alpha1.PrometheusSpec) (*PrometheusService, error) {
+func (d *Trigger) createP8sClient(countermeasure *v1alpha1.CounterMeasure) (*PrometheusService, error) {
+	promConfig := countermeasure.Spec.Prometheus
+	svc := promConfig.Service
+
 	serviceObject := &corev1.Service{}
-	if err := d.client.Get(context.Background(), p8sService.Service.GetNamespacedName(), serviceObject); err != nil {
+	if err := d.client.Get(context.Background(), svc.GetNamespacedName(), serviceObject); err != nil {
 		return nil, err
 	}
 
-	svc := p8sService.Service
 	svcPort, found := findNamedPort(serviceObject, svc.TargetPort)
 	var port int32
 	if found {
@@ -189,14 +191,18 @@ func (d *Trigger) createP8sClient(p8sService v1alpha1.PrometheusSpec) (*Promethe
 	address := fmt.Sprintf("%v://%v.%v.svc:%v", scheme, svc.Name, svc.Namespace, port)
 
 	var username, password string
-	if p8sService.Auth != nil {
-		auth := p8sService.Auth
-		if secret, err := d.getSecret(auth); err != nil {
-			username = string(secret.Data["username"])
-			password = string(secret.Data["password"])
-		} else {
-			d.logger.Error(err, "could not lookup secret %s in namespace %s", auth.Name, auth.Namespace)
+	if promConfig.Auth != nil {
+		secretRef := promConfig.Auth.SecretReference.DeepCopy()
+		if len(secretRef.Namespace) == 0 {
+			secretRef.Namespace = countermeasure.ObjectMeta.Namespace
 		}
+		secret, err := d.getSecret(secretRef)
+		if err != nil {
+			d.logger.Error(err, fmt.Sprintf("could not lookup secret %s in namespace %s", secretRef.Name, secretRef.Namespace))
+		}
+
+		username = string(secret.Data["username"])
+		password = string(secret.Data["password"])
 	}
 
 	p8sClient, err := d.p8sBuilder(address, username, password)
@@ -215,7 +221,7 @@ func (d *Trigger) getSecret(ref *corev1.SecretReference) (corev1.Secret, error) 
 	}
 	err := d.client.Get(context.Background(), key, &secret)
 	if err != nil {
-		return corev1.Secret{}, nil
+		return corev1.Secret{}, err
 	}
 
 	// TODO: support auth TLS using secret ref

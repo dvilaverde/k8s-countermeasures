@@ -75,3 +75,12 @@ spec:
     targetPort: 8080
   selector:
     app.kubernetes.io/name: monitored-app
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: p8s-basic-auth
+type: kubernetes.io/basic-auth
+stringData:
+  username: admin 
+  password: t0p-Secret

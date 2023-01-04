@@ -89,13 +89,18 @@ func (s *ServiceReference) GetNamespacedName() types.NamespacedName {
 	}
 }
 
+// AuthSpec Spec for references to secrets
+type AuthSpec struct {
+	SecretReference corev1.SecretReference `json:"secretRef"`
+}
+
 // PrometheusSpec definition of a monitor for a prometheus service in the K8s cluster
 type PrometheusSpec struct {
 	Service *ServiceReference `json:"service"`
 	// Defines a Kubernetes secret with a type indicating the authentication scheme
 	// for example the type: 'kubernetes.io/basic-auth' indicates basic auth credentials
 	// to prometheus.
-	Auth *corev1.SecretReference `json:"auth,omitempty"`
+	Auth *AuthSpec `json:"auth,omitempty"`
 
 	Alert *PrometheusAlertSpec `json:"alert,omitempty"`
 }
