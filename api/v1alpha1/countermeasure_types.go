@@ -137,7 +137,7 @@ func (o *ObjectReference) ToGroupVersionKind() (schema.GroupVersionKind, error) 
 	return gv.WithKind(o.Kind), nil
 }
 
-// Action defines an action to be taken when the monitor detects a condition that needs attention.
+// Action defines an action to be taken when the trigger detects a condition that needs attention.
 type Action struct {
 	Name string `json:"name"`
 

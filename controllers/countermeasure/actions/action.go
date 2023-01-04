@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"text/template"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -37,7 +39,7 @@ type ActionHandlerSequence struct {
 	actions        []Action
 	recorder       record.EventRecorder
 	countermeasure *v1alpha1.CounterMeasure
-	index          int
+	mutex          sync.Mutex
 }
 
 type BaseAction struct {
@@ -117,7 +119,6 @@ func (r *Registry) ConvertToHandler(countermeasure *v1alpha1.CounterMeasure, bui
 		actions:        make([]Action, 0),
 		recorder:       builder.GetRecorder(),
 		countermeasure: countermeasure,
-		index:          0,
 	}
 
 	for _, action := range countermeasure.Spec.Actions {
@@ -148,45 +149,37 @@ func evaluateTemplate(templateString string, data ActionData) string {
 }
 
 // OnDetection called when an alert condition is detected.
-func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels map[string]string) {
+func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels []trigger.InstanceLabels) {
+
+	seq.mutex.Lock()
+	defer seq.mutex.Unlock()
+
 	cm := seq.countermeasure
-	if seq.index > 0 {
-		// This sequence of actions are already in progress, likely from a previous alert firing
-		// so don't handle this now. Log an event though so we know
-		seq.recorder.Event(cm, "Warning", "Skipping",
-			fmt.Sprintf("Skipping actions for '%s' previous execution still in progress and currently at action %d.",
-				cm.ObjectMeta.Name,
-				seq.index))
-	}
-
-	// create a struct that will be used as data for the templates in the custom resource
-	actionData := ActionData{
-		Labels: labels,
-	}
-
-	ctx := context.Background()
-	for _, action := range seq.actions[seq.index:] {
-		err := action.Perform(ctx, actionData)
-
-		// TODO: introduce some retrying logic here
-		if err != nil {
-			seq.recorder.Event(cm, "Warning", "ActionError", err.Error())
-			log.Error(err, "action execution error", "name", ns.Name, "namespace", ns.Namespace)
-			break
+	for _, instLabels := range labels {
+		// create a struct that will be used as data for the templates in the custom resource
+		actionData := ActionData{
+			Labels: instLabels,
 		}
 
-		// advance the index, so we know what action we're at
-		seq.index++
+		ctx := context.Background()
+		for _, action := range seq.actions {
+			err := action.Perform(ctx, actionData)
 
-		msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
-			action.GetName(),
-			action.GetTargetObjectName(actionData))
-		if cm.Spec.DryRun {
-			msg = fmt.Sprintf("%s. DryRun=true", msg)
+			// TODO: introduce some retrying logic here
+			if err != nil {
+				seq.recorder.Event(cm, "Warning", "ActionError", err.Error())
+				log.Error(err, "action execution error", "name", ns.Name, "namespace", ns.Namespace)
+				break
+			}
+
+			msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
+				action.GetName(),
+				action.GetTargetObjectName(actionData))
+			if cm.Spec.DryRun {
+				msg = fmt.Sprintf("%s. DryRun=true", msg)
+			}
+
+			seq.recorder.Event(cm, "Normal", "AlertFired", msg)
 		}
-
-		seq.recorder.Event(cm, "Normal", "AlertFired", msg)
 	}
-
-	seq.index = 0
 }

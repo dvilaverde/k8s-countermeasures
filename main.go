@@ -130,7 +130,7 @@ func main() {
 
 	triggers := make([]trigger.Trigger, 1)
 
-	// add all the supported detectors
+	// add all the supported triggers
 	p8sTrigger := prometheus.NewTrigger(prometheus.NewPrometheusClient, 15*time.Second) // TODO: make configurable
 	triggers[0] = p8sTrigger
 	mgr.Add(p8sTrigger)

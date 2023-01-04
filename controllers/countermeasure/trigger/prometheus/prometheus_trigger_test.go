@@ -96,8 +96,8 @@ func Test_Notify(t *testing.T) {
 	wg.Add(1)
 
 	assert.True(t, p8Trigger.Supports(&cm.Spec))
-	p8Trigger.NotifyOn(cm, trigger.HandlerFunc(func(nn types.NamespacedName, m map[string]string) {
-		assert.Equal(t, 3, len(m))
+	p8Trigger.NotifyOn(cm, trigger.HandlerFunc(func(nn types.NamespacedName, m []trigger.InstanceLabels) {
+		assert.Equal(t, 3, len(m[0]))
 		wg.Done()
 	}))
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -41,37 +42,40 @@ func NewPrometheusClient(address string) (*PrometheusService, error) {
 
 // IsAlertActive returns true if the named alert is currently 'firing', or 'pending' if enabled.
 func (r *AlertQueryResult) IsAlertActive(alertName string, includePending bool) bool {
-	foundAlert := r.findActiveAlert(alertName, includePending)
-	return foundAlert != nil
+	foundAlerts := r.findActiveAlert(alertName, includePending)
+	return len(foundAlerts) > 0
 }
 
-func (r *AlertQueryResult) GetActiveAlertLabels(alertName string, includePending bool) (map[string]string, error) {
-	foundAlert := r.findActiveAlert(alertName, includePending)
-	if foundAlert == nil {
+func (r *AlertQueryResult) GetActiveAlertLabels(alertName string, includePending bool) ([]trigger.InstanceLabels, error) {
+	foundAlerts := r.findActiveAlert(alertName, includePending)
+	if len(foundAlerts) == 0 {
 		return nil, fmt.Errorf("alert %v is not firing (or pending)", alertName)
 	}
 
-	labels := make(map[string]string, len(foundAlert.Labels))
-	for label, value := range foundAlert.Labels {
-		labels[string(label)] = string(value)
+	instances := make([]trigger.InstanceLabels, len(foundAlerts))
+	for idx, alert := range foundAlerts {
+		labels := make(map[string]string, len(alert.Labels))
+		for label, value := range alert.Labels {
+			labels[string(label)] = string(value)
+		}
+		instances[idx] = labels
 	}
 
-	return labels, nil
+	return instances, nil
 }
 
 // findActiveAlert returns an alert if it is firing (or pending), but not inactive
-func (r *AlertQueryResult) findActiveAlert(alertName string, includePending bool) *v1.Alert {
-	var foundAlert *v1.Alert
+func (r *AlertQueryResult) findActiveAlert(alertName string, includePending bool) []v1.Alert {
+	foundAlerts := make([]v1.Alert, 0)
 	for _, alert := range r.alerts {
 		if alert.State == v1.AlertStateFiring || (includePending && alert.State == v1.AlertStatePending) {
 			if alert.Labels["alertname"] == model.LabelValue(alertName) {
-				foundAlert = &alert
-				break
+				foundAlerts = append(foundAlerts, alert)
 			}
 		}
 	}
 
-	return foundAlert
+	return foundAlerts
 }
 
 func (ps *PrometheusService) GetActiveAlerts() (AlertQueryResult, error) {

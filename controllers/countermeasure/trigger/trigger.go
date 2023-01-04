@@ -6,12 +6,13 @@ import (
 )
 
 type Handler interface {
-	OnDetection(types.NamespacedName, map[string]string)
+	OnDetection(types.NamespacedName, []InstanceLabels)
 }
 
-type HandlerFunc func(types.NamespacedName, map[string]string)
+type HandlerFunc func(types.NamespacedName, []InstanceLabels)
+type InstanceLabels map[string]string
 
-func (handler HandlerFunc) OnDetection(name types.NamespacedName, labels map[string]string) {
+func (handler HandlerFunc) OnDetection(name types.NamespacedName, labels []InstanceLabels) {
 	handler(name, labels)
 }
 

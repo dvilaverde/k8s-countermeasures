@@ -99,6 +99,6 @@ func TestGetAlerts(t *testing.T) {
 		return
 	}
 
-	assert.Equal(t, 3, len(labels))
-	assert.Equal(t, "app-pod-xyxsl", labels["pod"])
+	assert.Equal(t, 3, len(labels[0]))
+	assert.Equal(t, "app-pod-xyxsl", labels[0]["pod"])
 }
