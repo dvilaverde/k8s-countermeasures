@@ -8,10 +8,11 @@ import (
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 )
 
-type Builder func(string) (*PrometheusService, error)
+type Builder func(string, string, string) (*PrometheusService, error)
 
 type PrometheusService struct {
 	p8sApi v1.API
@@ -28,10 +29,18 @@ func NewPrometheusService(api v1.API) *PrometheusService {
 	}
 }
 
-func NewPrometheusClient(address string) (*PrometheusService, error) {
-	client, err := api.NewClient(api.Config{
+func NewPrometheusClient(address, username, password string) (*PrometheusService, error) {
+	clientConfig := api.Config{
 		Address: address,
-	})
+	}
+
+	if len(username) > 0 {
+		clientConfig.RoundTripper = config.NewBasicAuthRoundTripper(username,
+			config.Secret(password), "",
+			api.DefaultRoundTripper)
+	}
+
+	client, err := api.NewClient(clientConfig)
 
 	if err != nil {
 		return nil, fmt.Errorf("error creating client, %w", err)

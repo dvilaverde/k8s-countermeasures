@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -91,7 +92,10 @@ func (s *ServiceReference) GetNamespacedName() types.NamespacedName {
 // PrometheusSpec definition of a monitor for a prometheus service in the K8s cluster
 type PrometheusSpec struct {
 	Service *ServiceReference `json:"service"`
-	// TODO: support auth (basic and TLS) using secret ref
+	// Defines a Kubernetes secret with a type indicating the authentication scheme
+	// for example the type: 'kubernetes.io/basic-auth' indicates basic auth credentials
+	// to prometheus.
+	Auth *corev1.SecretReference `json:"auth,omitempty"`
 
 	Alert *PrometheusAlertSpec `json:"alert,omitempty"`
 }
