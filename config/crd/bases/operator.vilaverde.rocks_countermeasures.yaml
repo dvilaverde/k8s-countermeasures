@@ -195,6 +195,21 @@ spec:
                     required:
                     - name
                     type: object
+                  auth:
+                    description: 'Defines a Kubernetes secret with a type indicating
+                      the authentication scheme for example the type: ''kubernetes.io/basic-auth''
+                      indicates basic auth credentials to prometheus.'
+                    properties:
+                      name:
+                        description: name is unique within a namespace to reference
+                          a secret resource.
+                        type: string
+                      namespace:
+                        description: namespace defines the space within which the
+                          secret name must be unique.
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
                   service:
                     properties:
                       name:

@@ -2,6 +2,7 @@ package prometheus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -27,7 +28,7 @@ type callback struct {
 type Trigger struct {
 	logger     logr.Logger
 	client     client.Client
-	p8sBulider Builder
+	p8sBuilder Builder
 
 	interval time.Duration
 
@@ -39,7 +40,7 @@ type Trigger struct {
 func NewTrigger(p8ServiceBuilder Builder, interval time.Duration) *Trigger {
 	return &Trigger{
 		interval:   interval,
-		p8sBulider: p8ServiceBuilder,
+		p8sBuilder: p8ServiceBuilder,
 	}
 }
 
@@ -186,11 +187,43 @@ func (d *Trigger) createP8sClient(p8sService v1alpha1.PrometheusSpec) (*Promethe
 	}
 
 	address := fmt.Sprintf("%v://%v.%v.svc:%v", scheme, svc.Name, svc.Namespace, port)
-	p8sClient, err := d.p8sBulider(address)
+
+	var username, password string
+	if p8sService.Auth != nil {
+		auth := p8sService.Auth
+		if secret, err := d.getSecret(auth); err != nil {
+			username = string(secret.Data["username"])
+			password = string(secret.Data["password"])
+		} else {
+			d.logger.Error(err, "could not lookup secret %s in namespace %s", auth.Name, auth.Namespace)
+		}
+	}
+
+	p8sClient, err := d.p8sBuilder(address, username, password)
 	if err != nil {
 		return nil, err
 	}
 	return p8sClient, nil
+}
+
+func (d *Trigger) getSecret(ref *corev1.SecretReference) (corev1.Secret, error) {
+	secret := corev1.Secret{}
+
+	key := client.ObjectKey{
+		Namespace: ref.Namespace,
+		Name:      ref.Name,
+	}
+	err := d.client.Get(context.Background(), key, &secret)
+	if err != nil {
+		return corev1.Secret{}, nil
+	}
+
+	// TODO: support auth TLS using secret ref
+	if secret.Type != corev1.SecretTypeBasicAuth {
+		return corev1.Secret{}, errors.New("only the basic auth type (kubernetes.io/basic-auth) is currently supported")
+	}
+
+	return secret, nil
 }
 
 func findNamedPort(service *corev1.Service, namedPort string) (corev1.ServicePort, bool) {

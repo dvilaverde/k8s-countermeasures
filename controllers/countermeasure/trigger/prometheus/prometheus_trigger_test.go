@@ -64,7 +64,7 @@ func Test_Notify(t *testing.T) {
 		Alerts: alerts,
 	})
 
-	builder := func(string) (*PrometheusService, error) {
+	builder := func(string, string, string) (*PrometheusService, error) {
 		return NewPrometheusService(p8Client.API()), nil
 	}
 
