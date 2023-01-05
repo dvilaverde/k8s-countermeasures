@@ -41,7 +41,7 @@ func (d *Debug) GetTargetObjectName(event sources.Event) string {
 	return d.createObjectName("pod", d.spec.PodRef.Namespace, d.spec.PodRef.Name, event)
 }
 
-func (d *Debug) Perform(ctx context.Context, event sources.Event) error {
+func (d *Debug) Perform(ctx context.Context, event sources.Event) (bool, error) {
 	targetPod := d.spec.PodRef
 	podName := ObjectKeyFromTemplate(targetPod.Namespace, targetPod.Name, event)
 	targetContainerName := evaluateTemplate(targetPod.Container, event)
@@ -49,7 +49,7 @@ func (d *Debug) Perform(ctx context.Context, event sources.Event) error {
 	pod := &corev1.Pod{}
 	err := d.client.Get(ctx, podName, pod)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	ephemeral := pod.Spec.EphemeralContainers
@@ -99,5 +99,5 @@ func (d *Debug) Perform(ctx context.Context, event sources.Event) error {
 			UpdateEphemeralContainers(ctx, podName.Name, pod, opts)
 	}
 
-	return err
+	return err == nil, err
 }

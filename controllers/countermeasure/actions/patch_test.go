@@ -110,7 +110,7 @@ func runAction(dryRun bool) (*v1.Deployment, error) {
 
 	patch := NewPatchAction(k8sClient, spec)
 	patch.DryRun = dryRun
-	err = patch.Perform(context.TODO(), sources.Event{
+	_, err = patch.Perform(context.TODO(), sources.Event{
 		Data: make(map[string]string),
 	})
 
