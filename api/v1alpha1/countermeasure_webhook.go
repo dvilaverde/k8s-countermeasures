@@ -57,6 +57,7 @@ var _ webhook.Validator = &CounterMeasure{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *CounterMeasure) ValidateCreate() error {
 	countermeasurelog.Info("validate create", "name", r.Name)
+
 	return ValidateSpec(&r.Spec)
 }
 
