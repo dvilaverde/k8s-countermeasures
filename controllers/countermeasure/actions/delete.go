@@ -32,11 +32,11 @@ func (d *Delete) GetTargetObjectName(data ActionData) string {
 	return d.createObjectName(target.Kind, target.Namespace, target.Name, data)
 }
 
-func (d *Delete) Perform(ctx context.Context, actionData ActionData) error {
+func (d *Delete) Perform(ctx context.Context, actionData ActionData) (bool, error) {
 	target := d.spec.TargetObjectRef
 	gvk, err := target.ToGroupVersionKind()
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	object := &unstructured.Unstructured{}
@@ -48,10 +48,10 @@ func (d *Delete) Perform(ctx context.Context, actionData ActionData) error {
 		if errors.IsNotFound(err) {
 			// we've already deleted the resource, so ignore this error
 			// and take no further action
-			return nil
+			return false, nil
 		}
 
-		return err
+		return false, err
 	}
 
 	opts := make([]client.DeleteOption, 0)
@@ -60,5 +60,5 @@ func (d *Delete) Perform(ctx context.Context, actionData ActionData) error {
 	}
 	err = d.client.Delete(ctx, object, opts...)
 
-	return err
+	return true, err
 }
