@@ -12,6 +12,7 @@
             "program": "${workspaceFolder}/main.go",
             "env": {
                 "WATCH_NAMESPACE": "ns-custom,monitoring",
+                "ENABLE_WEBHOOKS": "false",
             },
             "args": ["--zap-time-encoding=rfc3339"]
         },

@@ -1,0 +1,54 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-operator-vilaverde-rocks-v1alpha1-countermeasure
+  failurePolicy: Fail
+  name: mcountermeasure.kb.io
+  rules:
+  - apiGroups:
+    - operator.vilaverde.rocks
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - countermeasures
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-operator-vilaverde-rocks-v1alpha1-countermeasure
+  failurePolicy: Fail
+  name: vcountermeasure.kb.io
+  rules:
+  - apiGroups:
+    - operator.vilaverde.rocks
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - countermeasures
+  sideEffects: None
