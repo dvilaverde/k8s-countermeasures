@@ -40,11 +40,11 @@ func (p *Patch) GetTargetObjectName(data ActionData) string {
 }
 
 // Perform will apply the patch to the object
-func (p *Patch) Perform(ctx context.Context, actionData ActionData) error {
+func (p *Patch) Perform(ctx context.Context, actionData ActionData) (bool, error) {
 
 	gvk, err := p.spec.TargetObjectRef.ToGroupVersionKind()
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	object := &unstructured.Unstructured{}
@@ -55,7 +55,7 @@ func (p *Patch) Perform(ctx context.Context, actionData ActionData) error {
 
 	err = p.client.Get(ctx, objectName, object)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	patch, err := p.createPatch(PatchData{
@@ -64,7 +64,7 @@ func (p *Patch) Perform(ctx context.Context, actionData ActionData) error {
 	})
 
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	opts := make([]client.PatchOption, 0)
@@ -72,7 +72,8 @@ func (p *Patch) Perform(ctx context.Context, actionData ActionData) error {
 		opts = append(opts, client.DryRunAll)
 	}
 
-	return p.client.Patch(ctx, object, patch, opts...)
+	err = p.client.Patch(ctx, object, patch, opts...)
+	return err == nil, err
 }
 
 func (p *Patch) createPatch(data PatchData) (client.Patch, error) {

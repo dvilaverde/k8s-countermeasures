@@ -26,7 +26,7 @@ type Registry struct {
 }
 
 type Action interface {
-	Perform(context.Context, ActionData) error
+	Perform(context.Context, ActionData) (bool, error)
 	GetName() string
 	GetTargetObjectName(ActionData) string
 }
@@ -163,7 +163,7 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels []
 
 		ctx := context.Background()
 		for _, action := range seq.actions {
-			err := action.Perform(ctx, actionData)
+			ok, err := action.Perform(ctx, actionData)
 
 			// TODO: introduce some retrying logic here
 			if err != nil {
@@ -172,14 +172,16 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels []
 				break
 			}
 
-			msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
-				action.GetName(),
-				action.GetTargetObjectName(actionData))
-			if cm.Spec.DryRun {
-				msg = fmt.Sprintf("%s. DryRun=true", msg)
-			}
+			if ok {
+				msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
+					action.GetName(),
+					action.GetTargetObjectName(actionData))
+				if cm.Spec.DryRun {
+					msg = fmt.Sprintf("%s. DryRun=true", msg)
+				}
 
-			seq.recorder.Event(cm, "Normal", "AlertFired", msg)
+				seq.recorder.Event(cm, "Normal", "AlertFired", msg)
+			}
 		}
 	}
 }
