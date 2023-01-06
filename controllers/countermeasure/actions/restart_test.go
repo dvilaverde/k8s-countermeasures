@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,8 +72,8 @@ func TestRestart_Perform(t *testing.T) {
 	}
 
 	restart := NewRestartAction(k8sClient, spec)
-	err = restart.Perform(context.TODO(), ActionData{
-		Labels: make(map[string]string),
+	err = restart.Perform(context.TODO(), sources.Event{
+		Data: make(map[string]string),
 	})
 
 	if err != nil {

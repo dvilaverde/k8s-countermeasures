@@ -6,13 +6,14 @@ import (
 	"text/template"
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
 type PatchData struct {
-	ActionData
+	sources.EventData
 	*unstructured.Unstructured
 }
 
@@ -34,13 +35,13 @@ func NewPatchFromBase(base BaseAction, spec v1alpha1.PatchSpec) *Patch {
 	}
 }
 
-func (p *Patch) GetTargetObjectName(data ActionData) string {
+func (p *Patch) GetTargetObjectName(event sources.Event) string {
 	target := p.spec.TargetObjectRef
-	return p.createObjectName(target.Kind, target.Namespace, target.Name, data)
+	return p.createObjectName(target.Kind, target.Namespace, target.Name, event)
 }
 
 // Perform will apply the patch to the object
-func (p *Patch) Perform(ctx context.Context, actionData ActionData) error {
+func (p *Patch) Perform(ctx context.Context, event sources.Event) error {
 
 	gvk, err := p.spec.TargetObjectRef.ToGroupVersionKind()
 	if err != nil {
@@ -51,7 +52,7 @@ func (p *Patch) Perform(ctx context.Context, actionData ActionData) error {
 	object.SetGroupVersionKind(gvk)
 
 	target := p.spec.TargetObjectRef
-	objectName := ObjectKeyFromTemplate(target.Namespace, target.Name, actionData)
+	objectName := ObjectKeyFromTemplate(target.Namespace, target.Name, event)
 
 	err = p.client.Get(ctx, objectName, object)
 	if err != nil {
@@ -59,7 +60,7 @@ func (p *Patch) Perform(ctx context.Context, actionData ActionData) error {
 	}
 
 	patch, err := p.createPatch(PatchData{
-		ActionData:   actionData,
+		EventData:    event.Data,
 		Unstructured: object,
 	})
 

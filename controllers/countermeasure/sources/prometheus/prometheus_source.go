@@ -13,7 +13,7 @@ import (
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	cm "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -22,10 +22,10 @@ import (
 type callback struct {
 	name      types.NamespacedName
 	alertSpec *v1alpha1.PrometheusAlertSpec
-	handler   trigger.Handler
+	handler   sources.Handler
 }
 
-type Trigger struct {
+type EventSource struct {
 	logger     logr.Logger
 	client     client.Client
 	p8sBuilder Builder
@@ -37,14 +37,14 @@ type Trigger struct {
 	p8sToCallbacks map[string][]callback
 }
 
-func NewTrigger(p8ServiceBuilder Builder, interval time.Duration) *Trigger {
-	return &Trigger{
+func NewEventSource(p8ServiceBuilder Builder, interval time.Duration) *EventSource {
+	return &EventSource{
 		interval:   interval,
 		p8sBuilder: p8ServiceBuilder,
 	}
 }
 
-func (d *Trigger) Start(ctx context.Context) error {
+func (d *EventSource) Start(ctx context.Context) error {
 	logger := log.FromContext(ctx)
 
 	d.p8Services = make(map[string]*PrometheusService)
@@ -59,19 +59,19 @@ func (d *Trigger) Start(ctx context.Context) error {
 
 // InjectLogger injectable logger
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/runtime/inject/inject.go
-func (d *Trigger) InjectLogger(logr logr.Logger) error {
+func (d *EventSource) InjectLogger(logr logr.Logger) error {
 	d.logger = logr
 	return nil
 }
 
 // InjectClient injectable client
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/runtime/inject/inject.go
-func (d *Trigger) InjectClient(client client.Client) error {
+func (d *EventSource) InjectClient(client client.Client) error {
 	d.client = client
 	return nil
 }
 
-func (d *Trigger) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler trigger.Handler) (trigger.CancelFunc, error) {
+func (d *EventSource) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler sources.Handler) (sources.CancelFunc, error) {
 	promConfig := countermeasure.Spec.Prometheus
 
 	p8SvcKey := cm.ServiceToKey(promConfig.Service)
@@ -108,12 +108,12 @@ func (d *Trigger) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler trigg
 	return d.cancelFunction(nsName), nil
 }
 
-func (d *Trigger) Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool {
+func (d *EventSource) Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool {
 	return countermeasure != nil && countermeasure.Prometheus != nil
 }
 
 // cancelFunction create a cancel function
-func (d *Trigger) cancelFunction(key types.NamespacedName) func() {
+func (d *EventSource) cancelFunction(key types.NamespacedName) func() {
 	return func() {
 		d.callbackMux.Lock()
 		defer d.callbackMux.Unlock()
@@ -125,7 +125,7 @@ func (d *Trigger) cancelFunction(key types.NamespacedName) func() {
 }
 
 // deleteCallbackByName delete a callback by callback name
-func (d *Trigger) deleteCallbackByName(p8sServiceKey string, name types.NamespacedName) {
+func (d *EventSource) deleteCallbackByName(p8sServiceKey string, name types.NamespacedName) {
 	callbacks := d.p8sToCallbacks[p8sServiceKey]
 	for idx, callback := range callbacks {
 		if callback.name == name {
@@ -140,7 +140,7 @@ func (d *Trigger) deleteCallbackByName(p8sServiceKey string, name types.Namespac
 }
 
 // poll fetch alerts from each prometheus service and notify the callbacks on any active alerts
-func (d *Trigger) poll() {
+func (d *EventSource) poll() {
 	d.callbackMux.Lock()
 	defer d.callbackMux.Unlock()
 
@@ -166,7 +166,7 @@ func (d *Trigger) poll() {
 	}
 }
 
-func (d *Trigger) createP8sClient(countermeasure *v1alpha1.CounterMeasure) (*PrometheusService, error) {
+func (d *EventSource) createP8sClient(countermeasure *v1alpha1.CounterMeasure) (*PrometheusService, error) {
 	promConfig := countermeasure.Spec.Prometheus
 	svc := promConfig.Service
 
@@ -212,7 +212,7 @@ func (d *Trigger) createP8sClient(countermeasure *v1alpha1.CounterMeasure) (*Pro
 	return p8sClient, nil
 }
 
-func (d *Trigger) getSecret(ref *corev1.SecretReference) (corev1.Secret, error) {
+func (d *EventSource) getSecret(ref *corev1.SecretReference) (corev1.Secret, error) {
 	secret := corev1.Secret{}
 
 	key := client.ObjectKey{

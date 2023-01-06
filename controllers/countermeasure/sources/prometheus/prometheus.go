@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/config"
@@ -55,22 +55,29 @@ func (r *AlertQueryResult) IsAlertActive(alertName string, includePending bool) 
 	return len(foundAlerts) > 0
 }
 
-func (r *AlertQueryResult) GetActiveAlertLabels(alertName string, includePending bool) ([]trigger.InstanceLabels, error) {
+func (r *AlertQueryResult) GetActiveAlertLabels(alertName string, includePending bool) ([]sources.Event, error) {
 	foundAlerts := r.findActiveAlert(alertName, includePending)
 	if len(foundAlerts) == 0 {
 		return nil, fmt.Errorf("alert %v is not firing (or pending)", alertName)
 	}
 
-	instances := make([]trigger.InstanceLabels, len(foundAlerts))
+	events := make([]sources.Event, len(foundAlerts))
 	for idx, alert := range foundAlerts {
+
 		labels := make(map[string]string, len(alert.Labels))
 		for label, value := range alert.Labels {
 			labels[string(label)] = string(value)
 		}
-		instances[idx] = labels
+
+		event := sources.Event{
+			Name: string(alert.Labels["alertname"]),
+			Data: labels,
+		}
+
+		events[idx] = event
 	}
 
-	return instances, nil
+	return events, nil
 }
 
 // findActiveAlert returns an alert if it is firing (or pending), but not inactive

@@ -37,8 +37,8 @@ import (
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger/prometheus"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources/prometheus"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -128,16 +128,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	triggers := make([]trigger.Trigger, 1)
+	sources := make([]sources.Source, 1)
 
-	// add all the supported triggers
-	p8sTrigger := prometheus.NewTrigger(prometheus.NewPrometheusClient, 15*time.Second) // TODO: make configurable
-	triggers[0] = p8sTrigger
-	mgr.Add(p8sTrigger)
+	// add all the supported event sources
+	source := prometheus.NewEventSource(prometheus.NewPrometheusClient, 15*time.Second) // TODO: make configurable
+	sources[0] = source
+	mgr.Add(source)
 
 	reconciler := &controllers.CounterMeasureReconciler{
 		ReconcilerBase: controllers.NewFromManager(mgr, mgr.GetEventRecorderFor("countermeasure_controller")),
-		Triggers:       triggers,
+		EventSources:   sources,
 		Log:            ctrl.Log.WithName("controllers").WithName("countermeasure"),
 	}
 	if err = (reconciler).SetupWithManager(mgr); err != nil {

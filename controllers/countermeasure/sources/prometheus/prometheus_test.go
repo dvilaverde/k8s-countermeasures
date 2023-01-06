@@ -93,12 +93,12 @@ func TestGetAlerts(t *testing.T) {
 	active = activeAlerts.IsAlertActive("custom-alert2", false)
 	assert.False(t, active)
 
-	labels, err := activeAlerts.GetActiveAlertLabels("custom-alert", false)
+	events, err := activeAlerts.GetActiveAlertLabels("custom-alert", false)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	assert.Equal(t, 3, len(labels[0]))
-	assert.Equal(t, "app-pod-xyxsl", labels[0]["pod"])
+	assert.Equal(t, 3, len(events[0].Data))
+	assert.Equal(t, "app-pod-xyxsl", events[0].Data["pod"])
 }

@@ -10,7 +10,7 @@ import (
 	"text/template"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -26,13 +26,9 @@ type Registry struct {
 }
 
 type Action interface {
-	Perform(context.Context, ActionData) error
+	Perform(context.Context, sources.Event) error
 	GetName() string
-	GetTargetObjectName(ActionData) string
-}
-
-type ActionData struct {
-	Labels map[string]string
+	GetTargetObjectName(sources.Event) string
 }
 
 type ActionHandlerSequence struct {
@@ -60,7 +56,7 @@ func (b *BaseAction) GetName() string {
 }
 
 // createObjectName evaluate the template (if any) in name and namespace to produce an object name.
-func (b *BaseAction) createObjectName(kind, namespace, name string, data ActionData) string {
+func (b *BaseAction) createObjectName(kind, namespace, name string, data sources.Event) string {
 	return fmt.Sprintf("%s: '%s/%s'", strings.ToLower(kind),
 		evaluateTemplate(namespace, data),
 		evaluateTemplate(name, data))
@@ -113,7 +109,7 @@ func (r *Registry) Create(builderArgs Builder, action v1alpha1.Action, dryRun bo
 	return nil, fmt.Errorf("action '%s' is either mis-configured or using an unknown action type", action.Name)
 }
 
-// ConvertToHandler converts a countermeasure and all actions within into a handler for trigger events.
+// ConvertToHandler converts a countermeasure and all actions within into a handler for source events.
 func (r *Registry) ConvertToHandler(countermeasure *v1alpha1.CounterMeasure, builder Builder) (*ActionHandlerSequence, error) {
 	seq := &ActionHandlerSequence{
 		actions:        make([]Action, 0),
@@ -134,36 +130,33 @@ func (r *Registry) ConvertToHandler(countermeasure *v1alpha1.CounterMeasure, bui
 }
 
 // ObjectKeyFromTemplate create a client.ObjectKey from a namespace and name template.
-func ObjectKeyFromTemplate(namespaceTemplate, nameTemplate string, data ActionData) client.ObjectKey {
+func ObjectKeyFromTemplate(namespaceTemplate, nameTemplate string, event sources.Event) client.ObjectKey {
 	return client.ObjectKey{
-		Namespace: evaluateTemplate(namespaceTemplate, data),
-		Name:      evaluateTemplate(nameTemplate, data),
+		Namespace: evaluateTemplate(namespaceTemplate, event),
+		Name:      evaluateTemplate(nameTemplate, event),
 	}
 }
 
-func evaluateTemplate(templateString string, data ActionData) string {
+func evaluateTemplate(templateString string, event sources.Event) string {
 	tmpl := template.Must(template.New("").Parse(templateString))
 	var buf bytes.Buffer
-	tmpl.Execute(&buf, data)
+	tmpl.Execute(&buf, event)
 	return buf.String()
 }
 
 // OnDetection called when an alert condition is detected.
-func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels []trigger.InstanceLabels) {
+func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, events []sources.Event) {
 
 	seq.mutex.Lock()
 	defer seq.mutex.Unlock()
 
 	cm := seq.countermeasure
-	for _, instLabels := range labels {
+	for _, event := range events {
 		// create a struct that will be used as data for the templates in the custom resource
-		actionData := ActionData{
-			Labels: instLabels,
-		}
 
 		ctx := context.Background()
 		for _, action := range seq.actions {
-			err := action.Perform(ctx, actionData)
+			err := action.Perform(ctx, event)
 
 			// TODO: introduce some retrying logic here
 			if err != nil {
@@ -174,7 +167,7 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, labels []
 
 			msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
 				action.GetName(),
-				action.GetTargetObjectName(actionData))
+				action.GetTargetObjectName(event))
 			if cm.Spec.DryRun {
 				msg = fmt.Sprintf("%s. DryRun=true", msg)
 			}

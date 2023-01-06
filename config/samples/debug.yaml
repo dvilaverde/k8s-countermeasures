@@ -27,6 +27,6 @@ spec:
       image: busybox:1.28
       stdin: true
       podRef: 
-        name: "{{ .Labels.pod }}"
-        namespace: "{{ .Labels.namespace }}"
+        name: "{{ .Data.pod }}"
+        namespace: "{{ .Data.namespace }}"
         container: main
