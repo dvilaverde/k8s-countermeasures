@@ -5,21 +5,23 @@ import (
 	"encoding/hex"
 	"sort"
 	"strings"
+	"time"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 type Handler interface {
-	OnDetection(types.NamespacedName, []Event)
+	OnDetection(types.NamespacedName, []Event, chan<- string)
 }
 
-type HandlerFunc func(types.NamespacedName, []Event)
+type HandlerFunc func(types.NamespacedName, []Event, chan<- string)
 
 type EventData map[string]string
 type Event struct {
-	Name string
-	Data EventData
+	Name       string
+	ActiveTime time.Time
+	Data       EventData
 }
 
 // Key hash the EventData into a key that can be used to de-duplicate events.
@@ -46,8 +48,8 @@ func (e Event) Key() string {
 	return es
 }
 
-func (handler HandlerFunc) OnDetection(name types.NamespacedName, event []Event) {
-	handler(name, event)
+func (handler HandlerFunc) OnDetection(name types.NamespacedName, event []Event, done chan<- string) {
+	handler(name, event, done)
 }
 
 type CancelFunc func()

@@ -12,6 +12,17 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+type AlertNotFiring struct {
+	msg string
+}
+
+func (nf *AlertNotFiring) Error() string {
+	if len(nf.msg) == 0 {
+		return "alert not firing"
+	}
+	return nf.msg
+}
+
 type Builder func(string, string, string) (*PrometheusService, error)
 
 type PrometheusService struct {
@@ -55,10 +66,11 @@ func (r *AlertQueryResult) IsAlertActive(alertName string, includePending bool) 
 	return len(foundAlerts) > 0
 }
 
-func (r *AlertQueryResult) GetActiveAlertLabels(alertName string, includePending bool) ([]sources.Event, error) {
+// ToEvents get the Events for the alert name.
+func (r *AlertQueryResult) ToEvents(alertName string, includePending bool) ([]sources.Event, error) {
 	foundAlerts := r.findActiveAlert(alertName, includePending)
 	if len(foundAlerts) == 0 {
-		return nil, fmt.Errorf("alert %v is not firing (or pending)", alertName)
+		return nil, &AlertNotFiring{msg: fmt.Sprintf("alert %v is not firing (or pending)", alertName)}
 	}
 
 	events := make([]sources.Event, len(foundAlerts))
@@ -70,8 +82,9 @@ func (r *AlertQueryResult) GetActiveAlertLabels(alertName string, includePending
 		}
 
 		event := sources.Event{
-			Name: string(alert.Labels["alertname"]),
-			Data: labels,
+			Name:       string(alert.Labels["alertname"]),
+			ActiveTime: alert.ActiveAt,
+			Data:       labels,
 		}
 
 		events[idx] = event

@@ -16,6 +16,8 @@ spec:
     alert:
       name: HTTP_404
       includePending: false
+      suppressionPolicy:
+        duration: 1m
   actions:
   - name: change-env
     patch:

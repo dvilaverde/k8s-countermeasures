@@ -145,10 +145,15 @@ func evaluateTemplate(templateString string, event sources.Event) string {
 }
 
 // OnDetection called when an alert condition is detected.
-func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, events []sources.Event) {
+func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, events []sources.Event, eventDone chan<- string) {
 
 	seq.mutex.Lock()
 	defer seq.mutex.Unlock()
+
+	// in the event of errors close the done channel to avoid goroutine leak
+	defer func() {
+		close(eventDone)
+	}()
 
 	cm := seq.countermeasure
 	for _, event := range events {
@@ -168,11 +173,14 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, events []
 			msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
 				action.GetName(),
 				action.GetTargetObjectName(event))
+
 			if cm.Spec.DryRun {
 				msg = fmt.Sprintf("%s. DryRun=true", msg)
 			}
 
 			seq.recorder.Event(cm, "Normal", "AlertFired", msg)
 		}
+
+		eventDone <- event.Key()
 	}
 }
