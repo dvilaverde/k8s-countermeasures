@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
@@ -55,7 +56,7 @@ func TestObjectKeyFromTemplate(t *testing.T) {
 	type args struct {
 		namespaceTemplate string
 		nameTemplate      string
-		data              ActionData
+		event             sources.Event
 	}
 	tests := []struct {
 		name string
@@ -67,7 +68,7 @@ func TestObjectKeyFromTemplate(t *testing.T) {
 			args: args{
 				namespaceTemplate: "ns",
 				nameTemplate:      "name",
-				data:              ActionData{},
+				event:             sources.Event{},
 			},
 			want: client.ObjectKey{
 				Namespace: "ns",
@@ -77,7 +78,7 @@ func TestObjectKeyFromTemplate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ObjectKeyFromTemplate(tt.args.namespaceTemplate, tt.args.nameTemplate, tt.args.data); !reflect.DeepEqual(got, tt.want) {
+			if got := ObjectKeyFromTemplate(tt.args.namespaceTemplate, tt.args.nameTemplate, tt.args.event); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ObjectKeyFromTemplate() = %v, want %v", got, tt.want)
 			}
 		})

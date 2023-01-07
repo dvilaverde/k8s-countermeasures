@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,8 +49,8 @@ func TestDebug_Perform(t *testing.T) {
 
 	spec := v1alpha1.DebugSpec{
 		PodRef: v1alpha1.PodReference{
-			Namespace: "{{ .Labels.namespace }}",
-			Name:      "{{ .Labels.pod }}",
+			Namespace: "{{ .Data.namespace }}",
+			Name:      "{{ .Data.pod }}",
 		},
 		Name:    "debugger",
 		Image:   "busybox",
@@ -62,8 +64,8 @@ func TestDebug_Perform(t *testing.T) {
 	labels["pod"] = PodName
 	labels["namespace"] = PodNamespace
 
-	debugAction.Perform(context.TODO(), ActionData{
-		Labels: labels,
+	debugAction.Perform(context.TODO(), sources.Event{
+		Data: labels,
 	})
 
 	pod, err := fakeCoreV1.Pods(PodNamespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
@@ -71,7 +73,7 @@ func TestDebug_Perform(t *testing.T) {
 		t.Error(err)
 	}
 
-	assert.Equal(t, 1, len(pod.Spec.EphemeralContainers))
+	require.Equal(t, 1, len(pod.Spec.EphemeralContainers))
 	container := pod.Spec.EphemeralContainers[0]
 	assert.Equal(t, "debugger", container.Name)
 	assert.Equal(t, "busybox", container.Image)

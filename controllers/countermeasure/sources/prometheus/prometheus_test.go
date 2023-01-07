@@ -2,6 +2,7 @@ package prometheus
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -93,12 +94,21 @@ func TestGetAlerts(t *testing.T) {
 	active = activeAlerts.IsAlertActive("custom-alert2", false)
 	assert.False(t, active)
 
-	labels, err := activeAlerts.GetActiveAlertLabels("custom-alert", false)
+	events, err := activeAlerts.ToEvents("custom-alert", false)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	assert.Equal(t, 3, len(labels[0]))
-	assert.Equal(t, "app-pod-xyxsl", labels[0]["pod"])
+	_, err = activeAlerts.ToEvents("custom-alert2", false)
+	if err == nil {
+		t.Error(errors.New("expected an error trying to create alerts from a non existent event"))
+		return
+	} else {
+		var errPointer *AlertNotFiring
+		assert.True(t, errors.As(err, &errPointer))
+	}
+
+	assert.Equal(t, 3, len(events[0].Data))
+	assert.Equal(t, "app-pod-xyxsl", events[0].Data["pod"])
 }

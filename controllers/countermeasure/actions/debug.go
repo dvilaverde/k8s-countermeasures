@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rand "k8s.io/apimachinery/pkg/util/rand"
@@ -36,14 +37,14 @@ func NewDebugFromBase(base BaseAction,
 	}
 }
 
-func (d *Debug) GetTargetObjectName(data ActionData) string {
-	return d.createObjectName("pod", d.spec.PodRef.Namespace, d.spec.PodRef.Name, data)
+func (d *Debug) GetTargetObjectName(event sources.Event) string {
+	return d.createObjectName("pod", d.spec.PodRef.Namespace, d.spec.PodRef.Name, event)
 }
 
-func (d *Debug) Perform(ctx context.Context, actionData ActionData) (bool, error) {
+func (d *Debug) Perform(ctx context.Context, event sources.Event) (bool, error) {
 	targetPod := d.spec.PodRef
-	podName := ObjectKeyFromTemplate(targetPod.Namespace, targetPod.Name, actionData)
-	targetContainerName := evaluateTemplate(targetPod.Container, actionData)
+	podName := ObjectKeyFromTemplate(targetPod.Namespace, targetPod.Name, event)
+	targetContainerName := evaluateTemplate(targetPod.Container, event)
 
 	pod := &corev1.Pod{}
 	err := d.client.Get(ctx, podName, pod)

@@ -30,18 +30,18 @@ import (
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	util "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/actions"
-	trigger "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 )
 
 type counterMeasureHandle struct {
-	cancelFunc trigger.CancelFunc
+	cancelFunc sources.CancelFunc
 	generation int64
 }
 
 // CounterMeasureReconciler reconciles a CounterMeasure object
 type CounterMeasureReconciler struct {
 	ReconcilerBase
-	Triggers       []trigger.Trigger
+	EventSources   []sources.Source
 	actionRegistry actions.Registry
 	monitored      map[string]counterMeasureHandle
 	Log            logr.Logger
@@ -163,23 +163,18 @@ func (r *CounterMeasureReconciler) isAlreadyMonitored(cm *v1alpha1.CounterMeasur
 
 // StartMonitoring will start monitoring a resource for events that require action
 func (r *CounterMeasureReconciler) startMonitoring(countermeasure *v1alpha1.CounterMeasure) error {
-	// if the generation hasn't changed from what we're monitoring then short return
-	if r.isAlreadyMonitored(countermeasure) {
-		return nil
-	}
-
 	found := false
 	nsName := util.ToNamespaceName(&countermeasure.ObjectMeta)
 
-	for _, trigger := range r.Triggers {
-		if trigger.Supports(&countermeasure.Spec) {
+	for _, source := range r.EventSources {
+		if source.Supports(&countermeasure.Spec) {
 
 			handler, err := r.actionRegistry.ConvertToHandler(countermeasure, r)
 			if err != nil {
 				return err
 			}
 
-			cancel, err := trigger.NotifyOn(*countermeasure, handler)
+			cancel, err := source.NotifyOn(*countermeasure, handler)
 			if err != nil {
 				return err
 			}
@@ -195,7 +190,7 @@ func (r *CounterMeasureReconciler) startMonitoring(countermeasure *v1alpha1.Coun
 	}
 
 	if !found {
-		r.Log.Error(nil, "could not find a supported countermeasure trigger")
+		r.Log.Error(nil, "could not find a supported countermeasure event source")
 	}
 
 	return nil
