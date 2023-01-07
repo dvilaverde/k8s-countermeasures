@@ -174,7 +174,6 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, events []
 				msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
 					action.GetName(),
 					action.GetTargetObjectName(event))
-
 				if cm.Spec.DryRun {
 					msg = fmt.Sprintf("%s. DryRun=true", msg)
 				}
