@@ -8,7 +8,7 @@ import (
 	"time"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +32,32 @@ func (m *OperatorSDKClientMock) Get(ctx context.Context,
 
 	args := m.Called(ctx, key, nil, nil)
 	return args.Error(0)
+}
+
+func Test_callbackSuppressExpired(t *testing.T) {
+
+	event := sources.Event{
+		Name:       "Alert1",
+		ActiveTime: time.Now().Add(-30 * time.Second),
+	}
+
+	cb := callback{
+		name:             types.NamespacedName{Namespace: "ns", Name: "name"},
+		suppressedAlerts: make(map[string]time.Time),
+		alertSpec: &v1alpha1.PrometheusAlertSpec{
+			SuppressionPolicy: &v1alpha1.SuppressionPolicySpec{
+				Duration: &metav1.Duration{
+					Duration: 15 * time.Second,
+				},
+			},
+		},
+	}
+
+	cb.suppressedAlerts[event.Key()] = event.ActiveTime
+
+	cb.removeExpiredSuppressions()
+
+	assert.Equal(t, 0, len(cb.suppressedAlerts), "suppressed alert was not deleted")
 }
 
 func Test_Notify(t *testing.T) {
@@ -68,9 +94,9 @@ func Test_Notify(t *testing.T) {
 		return NewPrometheusService(p8Client.API()), nil
 	}
 
-	p8Trigger := NewTrigger(builder, 1*time.Second)
-	p8Trigger.InjectClient(mockClient)
-	if err := p8Trigger.Start(ctx); err != nil {
+	source := NewEventSource(builder, 1*time.Second)
+	source.InjectClient(mockClient)
+	if err := source.Start(ctx); err != nil {
 		t.Error(err)
 		return
 	}
@@ -95,10 +121,11 @@ func Test_Notify(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	assert.True(t, p8Trigger.Supports(&cm.Spec))
-	p8Trigger.NotifyOn(cm, trigger.HandlerFunc(func(nn types.NamespacedName, m []trigger.InstanceLabels) {
-		assert.Equal(t, 3, len(m[0]))
+	assert.True(t, source.Supports(&cm.Spec))
+	source.NotifyOn(cm, sources.HandlerFunc(func(nn types.NamespacedName, e []sources.Event, done chan<- string) {
+		assert.Equal(t, 3, len(e[0].Data))
 		wg.Done()
+		close(done)
 	}))
 
 	if err != nil {

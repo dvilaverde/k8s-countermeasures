@@ -20,7 +20,7 @@ spec:
   - name: delete-pod
     delete:
       targetObjectRef: 
-        name: "{{ .Labels.pod }}"
-        namespace: "{{ .Labels.namespace }}"
+        name: "{{ .Data.pod }}"
+        namespace: "{{ .Data.namespace }}"
         kind: Pod
         apiVersion: v1

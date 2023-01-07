@@ -9,6 +9,7 @@ import (
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/assets"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 )
 
 type Restart struct {
@@ -29,12 +30,12 @@ func NewRestartFromBase(base BaseAction, spec v1alpha1.RestartSpec) *Restart {
 	}
 }
 
-func (r *Restart) GetTargetObjectName(data ActionData) string {
-	return r.createObjectName("deployment", r.spec.DeploymentRef.Namespace, r.spec.DeploymentRef.Name, data)
+func (r *Restart) GetTargetObjectName(event sources.Event) string {
+	return r.createObjectName("deployment", r.spec.DeploymentRef.Namespace, r.spec.DeploymentRef.Name, event)
 }
 
 // Perform will apply the restart patch to the deployment
-func (r *Restart) Perform(ctx context.Context, actionData ActionData) (bool, error) {
+func (r *Restart) Perform(ctx context.Context, event sources.Event) (bool, error) {
 	object := &unstructured.Unstructured{}
 
 	gvk := schema.GroupVersionKind{
@@ -45,7 +46,7 @@ func (r *Restart) Perform(ctx context.Context, actionData ActionData) (bool, err
 	object.SetGroupVersionKind(gvk)
 
 	target := r.spec.DeploymentRef
-	objectName := ObjectKeyFromTemplate(target.Namespace, target.Name, actionData)
+	objectName := ObjectKeyFromTemplate(target.Namespace, target.Name, event)
 
 	// do the patch to the labels to force a restart
 	patch := assets.GetPatch("restart-patch.yaml")

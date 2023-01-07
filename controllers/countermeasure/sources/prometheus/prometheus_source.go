@@ -13,19 +13,20 @@ import (
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	cm "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/trigger"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type callback struct {
-	name      types.NamespacedName
-	alertSpec *v1alpha1.PrometheusAlertSpec
-	handler   trigger.Handler
+	name             types.NamespacedName
+	alertSpec        *v1alpha1.PrometheusAlertSpec
+	handler          sources.Handler
+	suppressedAlerts map[string]time.Time
 }
 
-type Trigger struct {
+type EventSource struct {
 	logger     logr.Logger
 	client     client.Client
 	p8sBuilder Builder
@@ -34,21 +35,21 @@ type Trigger struct {
 
 	callbackMux    sync.Mutex
 	p8Services     map[string]*PrometheusService
-	p8sToCallbacks map[string][]callback
+	p8sToCallbacks map[string][]*callback
 }
 
-func NewTrigger(p8ServiceBuilder Builder, interval time.Duration) *Trigger {
-	return &Trigger{
+func NewEventSource(p8ServiceBuilder Builder, interval time.Duration) *EventSource {
+	return &EventSource{
 		interval:   interval,
 		p8sBuilder: p8ServiceBuilder,
 	}
 }
 
-func (d *Trigger) Start(ctx context.Context) error {
+func (d *EventSource) Start(ctx context.Context) error {
 	logger := log.FromContext(ctx)
 
 	d.p8Services = make(map[string]*PrometheusService)
-	d.p8sToCallbacks = make(map[string][]callback)
+	d.p8sToCallbacks = make(map[string][]*callback)
 
 	go utilwait.Until(d.poll, d.interval, ctx.Done())
 
@@ -59,19 +60,19 @@ func (d *Trigger) Start(ctx context.Context) error {
 
 // InjectLogger injectable logger
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/runtime/inject/inject.go
-func (d *Trigger) InjectLogger(logr logr.Logger) error {
+func (d *EventSource) InjectLogger(logr logr.Logger) error {
 	d.logger = logr
 	return nil
 }
 
 // InjectClient injectable client
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/runtime/inject/inject.go
-func (d *Trigger) InjectClient(client client.Client) error {
+func (d *EventSource) InjectClient(client client.Client) error {
 	d.client = client
 	return nil
 }
 
-func (d *Trigger) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler trigger.Handler) (trigger.CancelFunc, error) {
+func (d *EventSource) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler sources.Handler) (sources.CancelFunc, error) {
 	promConfig := countermeasure.Spec.Prometheus
 
 	p8SvcKey := cm.ServiceToKey(promConfig.Service)
@@ -79,15 +80,16 @@ func (d *Trigger) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler trigg
 	d.callbackMux.Lock()
 	defer d.callbackMux.Unlock()
 
-	newCallback := callback{
-		name:      types.NamespacedName{Name: countermeasure.Name, Namespace: countermeasure.Namespace},
-		alertSpec: countermeasure.Spec.Prometheus.Alert.DeepCopy(),
-		handler:   handler,
+	newCallback := &callback{
+		name:             types.NamespacedName{Name: countermeasure.Name, Namespace: countermeasure.Namespace},
+		alertSpec:        countermeasure.Spec.Prometheus.Alert.DeepCopy(),
+		handler:          handler,
+		suppressedAlerts: make(map[string]time.Time),
 	}
 
 	// the register the alert to the synchronized map
 	if _, ok := d.p8sToCallbacks[p8SvcKey]; !ok {
-		d.p8sToCallbacks[p8SvcKey] = append(make([]callback, 0), newCallback)
+		d.p8sToCallbacks[p8SvcKey] = append(make([]*callback, 0), newCallback)
 	} else {
 		// if a callback with this name already exists it needs to be removed first
 		d.deleteCallbackByName(p8SvcKey, newCallback.name)
@@ -108,12 +110,12 @@ func (d *Trigger) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler trigg
 	return d.cancelFunction(nsName), nil
 }
 
-func (d *Trigger) Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool {
+func (d *EventSource) Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool {
 	return countermeasure != nil && countermeasure.Prometheus != nil
 }
 
 // cancelFunction create a cancel function
-func (d *Trigger) cancelFunction(key types.NamespacedName) func() {
+func (d *EventSource) cancelFunction(key types.NamespacedName) func() {
 	return func() {
 		d.callbackMux.Lock()
 		defer d.callbackMux.Unlock()
@@ -125,7 +127,7 @@ func (d *Trigger) cancelFunction(key types.NamespacedName) func() {
 }
 
 // deleteCallbackByName delete a callback by callback name
-func (d *Trigger) deleteCallbackByName(p8sServiceKey string, name types.NamespacedName) {
+func (d *EventSource) deleteCallbackByName(p8sServiceKey string, name types.NamespacedName) {
 	callbacks := d.p8sToCallbacks[p8sServiceKey]
 	for idx, callback := range callbacks {
 		if callback.name == name {
@@ -140,33 +142,84 @@ func (d *Trigger) deleteCallbackByName(p8sServiceKey string, name types.Namespac
 }
 
 // poll fetch alerts from each prometheus service and notify the callbacks on any active alerts
-func (d *Trigger) poll() {
+func (d *EventSource) poll() {
 	d.callbackMux.Lock()
 	defer d.callbackMux.Unlock()
 
 	for svc, callbacks := range d.p8sToCallbacks {
 		p8 := d.p8Services[svc]
 		alerts, err := p8.GetActiveAlerts()
-		if err == nil {
-			for _, cb := range callbacks {
-				alertName := cb.alertSpec.AlertName
-				pending := cb.alertSpec.IncludePending
+		if err != nil {
+			d.logger.Error(err, "failed to get alerts from prometheus service", "prometheus_service", svc)
+			return
+		}
 
-				if alerts.IsAlertActive(alertName, pending) {
-					labels, err := alerts.GetActiveAlertLabels(alertName, pending)
-					if err != nil {
-						d.logger.Error(err, "could not get active alert labels", "alertname", alertName)
-					}
-					go cb.handler.OnDetection(cb.name, labels)
+		if len(alerts.alerts) == 0 {
+			continue
+		}
+
+		for _, cb := range callbacks {
+			// remove any previously suppressed alerts
+			cb.removeExpiredSuppressions()
+
+			alertSpec := cb.alertSpec
+			events, err := alerts.ToEvents(alertSpec.AlertName, alertSpec.IncludePending)
+			if err != nil {
+				var errPointer *AlertNotFiring
+				if !errors.As(err, &errPointer) {
+					d.logger.Error(err, "could not get events for alert", "alertName", alertSpec.AlertName)
 				}
 			}
-		} else {
-			d.logger.Error(err, "failed to get alerts from prometheus service", "prometheus_service", svc)
+
+			var unsuppressed []sources.Event
+			if len(cb.suppressedAlerts) == 0 {
+				unsuppressed = events
+			} else {
+				// filter any events that are being suppressed
+				unsuppressed = make([]sources.Event, 0)
+				for _, e := range events {
+					if _, ok := cb.suppressedAlerts[e.Key()]; !ok {
+						unsuppressed = append(unsuppressed, e)
+					}
+				}
+			}
+
+			if len(unsuppressed) > 0 {
+				// start handling the actions on a goroutine so we can continue checking the
+				// other alerts and callbacks
+				callbackChannel := make(chan string)
+				go cb.handler.OnDetection(cb.name, unsuppressed, callbackChannel)
+
+				if cb.alertSpec.SuppressionPolicy != nil {
+					go func(c *callback, e []sources.Event) {
+						eventTimes := make(map[string]time.Time)
+
+						for _, event := range e {
+							eventTimes[event.Key()] = event.ActiveTime
+						}
+
+						for k := range callbackChannel {
+							if v, ok := eventTimes[k]; ok {
+								c.suppressedAlerts[k] = v
+							}
+						}
+					}(cb, unsuppressed)
+				} else {
+					go func() {
+						for {
+							if _, ok := <-callbackChannel; !ok {
+								break
+							}
+						}
+					}()
+				}
+
+			}
 		}
 	}
 }
 
-func (d *Trigger) createP8sClient(countermeasure *v1alpha1.CounterMeasure) (*PrometheusService, error) {
+func (d *EventSource) createP8sClient(countermeasure *v1alpha1.CounterMeasure) (*PrometheusService, error) {
 	promConfig := countermeasure.Spec.Prometheus
 	svc := promConfig.Service
 
@@ -212,7 +265,7 @@ func (d *Trigger) createP8sClient(countermeasure *v1alpha1.CounterMeasure) (*Pro
 	return p8sClient, nil
 }
 
-func (d *Trigger) getSecret(ref *corev1.SecretReference) (corev1.Secret, error) {
+func (d *EventSource) getSecret(ref *corev1.SecretReference) (corev1.Secret, error) {
 	secret := corev1.Secret{}
 
 	key := client.ObjectKey{
@@ -230,6 +283,21 @@ func (d *Trigger) getSecret(ref *corev1.SecretReference) (corev1.Secret, error) 
 	}
 
 	return secret, nil
+}
+
+func (c *callback) removeExpiredSuppressions() {
+
+	if c.alertSpec.SuppressionPolicy == nil {
+		return
+	}
+
+	now := time.Now()
+	suppressDuration := c.alertSpec.SuppressionPolicy.Duration.Duration
+	for k, v := range c.suppressedAlerts {
+		if v.Add(suppressDuration).Before(now) {
+			delete(c.suppressedAlerts, k)
+		}
+	}
 }
 
 func findNamedPort(service *corev1.Service, namedPort string) (corev1.ServicePort, bool) {

@@ -105,10 +105,19 @@ type PrometheusSpec struct {
 	Alert *PrometheusAlertSpec `json:"alert,omitempty"`
 }
 
+// SuppressionPolicySpec Defines a policy to apply to alerts to suppress duplicates
+type SuppressionPolicySpec struct {
+	// Defines the duration of the suppression.
+	Duration *metav1.Duration `json:"duration,omitempty"`
+}
+
 // PrometheusAlertSpec definition of a monitored prometheus alert
 type PrometheusAlertSpec struct {
-	AlertName      string `json:"name"`
-	IncludePending bool   `json:"includePending,omitempty"`
+	AlertName string `json:"name"`
+	// If true will run the actions for any pending alerts.
+	IncludePending bool `json:"includePending,omitempty"`
+	// Defines a policy for how to suppress alerts from triggering actions.
+	SuppressionPolicy *SuppressionPolicySpec `json:"suppressionPolicy,omitempty"`
 }
 
 // DebugSpec Patches a pod with an ephemeral container that can be used to troubleshoot
@@ -146,7 +155,7 @@ func (o *ObjectReference) ToGroupVersionKind() (schema.GroupVersionKind, error) 
 	return gv.WithKind(o.Kind), nil
 }
 
-// Action defines an action to be taken when the trigger detects a condition that needs attention.
+// Action defines an action to be taken when the event source detects a condition that needs attention.
 type Action struct {
 	Name string `json:"name"`
 

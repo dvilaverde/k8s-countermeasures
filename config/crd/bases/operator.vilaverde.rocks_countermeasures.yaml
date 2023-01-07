@@ -49,8 +49,8 @@ spec:
             properties:
               actions:
                 items:
-                  description: Action defines an action to be taken when the trigger
-                    detects a condition that needs attention.
+                  description: Action defines an action to be taken when the event
+                    source detects a condition that needs attention.
                   properties:
                     debug:
                       description: The following specs are high level operations for
@@ -189,9 +189,19 @@ spec:
                       alert
                     properties:
                       includePending:
+                        description: If true will run the actions for any pending
+                          alerts.
                         type: boolean
                       name:
                         type: string
+                      suppressionPolicy:
+                        description: Defines a policy for how to suppress alerts from
+                          triggering actions.
+                        properties:
+                          duration:
+                            description: Defines the duration of the suppression.
+                            type: string
+                        type: object
                     required:
                     - name
                     type: object

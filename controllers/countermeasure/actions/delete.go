@@ -4,6 +4,7 @@ import (
 	"context"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,12 +28,12 @@ func NewDeleteFromBase(base BaseAction, spec v1alpha1.DeleteSpec) *Delete {
 	}
 }
 
-func (d *Delete) GetTargetObjectName(data ActionData) string {
+func (d *Delete) GetTargetObjectName(event sources.Event) string {
 	target := d.spec.TargetObjectRef
-	return d.createObjectName(target.Kind, target.Namespace, target.Name, data)
+	return d.createObjectName(target.Kind, target.Namespace, target.Name, event)
 }
 
-func (d *Delete) Perform(ctx context.Context, actionData ActionData) (bool, error) {
+func (d *Delete) Perform(ctx context.Context, event sources.Event) (bool, error) {
 	target := d.spec.TargetObjectRef
 	gvk, err := target.ToGroupVersionKind()
 	if err != nil {
@@ -41,7 +42,7 @@ func (d *Delete) Perform(ctx context.Context, actionData ActionData) (bool, erro
 
 	object := &unstructured.Unstructured{}
 	object.SetGroupVersionKind(gvk)
-	objectName := ObjectKeyFromTemplate(target.Namespace, target.Name, actionData)
+	objectName := ObjectKeyFromTemplate(target.Namespace, target.Name, event)
 
 	err = d.client.Get(ctx, objectName, object)
 	if err != nil {

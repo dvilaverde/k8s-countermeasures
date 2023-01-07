@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/stretchr/testify/assert"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,8 +52,8 @@ func TestDelete_Perform(t *testing.T) {
 
 	spec := v1alpha1.DeleteSpec{
 		TargetObjectRef: v1alpha1.ObjectReference{
-			Namespace:  "{{ .Labels.namespace }}",
-			Name:       "{{ .Labels.pod }}",
+			Namespace:  "{{ .Data.namespace }}",
+			Name:       "{{ .Data.pod }}",
 			Kind:       "Pod",
 			ApiVersion: "v1",
 		},
@@ -64,8 +65,8 @@ func TestDelete_Perform(t *testing.T) {
 	labels["pod"] = PodName
 	labels["namespace"] = PodNamespace
 
-	deleteAction.Perform(context.TODO(), ActionData{
-		Labels: labels,
+	deleteAction.Perform(context.TODO(), sources.Event{
+		Data: labels,
 	})
 
 	assertPodExists(t, k8sClient, 0)
@@ -79,5 +80,5 @@ func assertPodExists(t *testing.T, k8sClient client.Client, expected int) {
 		t.Error(err)
 	}
 
-	assert.Equal(t, expected, len(podList.Items))
+	require.Equal(t, expected, len(podList.Items))
 }
