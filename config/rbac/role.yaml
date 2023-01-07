@@ -6,9 +6,33 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - apps
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - autoscaling
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - batch
   resources:
-  - jobs
+  - '*'
   verbs:
   - create
   - delete
@@ -20,17 +44,27 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - secrets
+  - '*'
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
+  - watch
 - apiGroups:
-  - ""
+  - networking.k8s.io
   resources:
-  - services
+  - '*'
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - operator.vilaverde.rocks
   resources:
@@ -57,3 +91,15 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

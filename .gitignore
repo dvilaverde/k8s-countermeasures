@@ -22,3 +22,4 @@ __debug_bin
 # exclude IntelliJ workspace
 .idea/
 .DS_Store
+k8s-countermeasures

@@ -12,8 +12,19 @@
             "program": "${workspaceFolder}/main.go",
             "env": {
                 "WATCH_NAMESPACE": "ns-custom,monitoring",
+                "ENABLE_WEBHOOKS": "false",
             },
             "args": ["--zap-time-encoding=rfc3339"]
+        },
+        {
+            "name": "Controller Test",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "program": "${workspaceFolder}/controllers/countermeasure_controller_test.go",
+            "env": {
+                "KUBEBUILDER_ASSETS": "${workspaceFolder}/bin/k8s/1.25.0-darwin-arm64",
+            }
         },
         {
             "name": "Test Current File",
@@ -22,7 +33,7 @@
             "mode": "test",
             "program": "${fileDirname}",            
             "env": {
-                "KUBEBUILDER_ASSETS": "${workspaceFolder}/bin/k8s/1.25.0-darwin-amd64",
+                "KUBEBUILDER_ASSETS": "${workspaceFolder}/bin/k8s/1.25.0-darwin-arm64",
             }
         }
     ]
