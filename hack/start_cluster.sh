@@ -24,8 +24,8 @@ kubectl -n ns-custom apply -f $SCRIPT_DIR/bad_app/monitored_app.yaml
 # Install cert manager needed for the validating webhook
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.10.1/cert-manager.yaml
 
-# Next trigger a firing alert by running a shell in the cluster and running a load test
-# but you'll need the pod ip address
+# Next create an active alert (i.e. firing) by running a shell in the cluster 
+# and running a load test against the service.
 #
 sleep 5
 $SCRIPT_DIR/run_http_load.sh

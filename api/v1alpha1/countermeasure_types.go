@@ -111,6 +111,12 @@ type SuppressionPolicySpec struct {
 	Duration *metav1.Duration `json:"duration,omitempty"`
 }
 
+// SuppressionPolicySpec Defines a policy to apply to alerts to suppress duplicates
+type SuppressionPolicySpec struct {
+	// Defines the duration of the suppression.
+	Duration *metav1.Duration `json:"duration,omitempty"`
+}
+
 // PrometheusAlertSpec definition of a monitored prometheus alert
 type PrometheusAlertSpec struct {
 	AlertName string `json:"name"`
