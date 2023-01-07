@@ -102,7 +102,7 @@ type PrometheusSpec struct {
 	// to prometheus.
 	Auth *AuthSpec `json:"auth,omitempty"`
 
-	Alert *PrometheusAlertSpec `json:"alert,omitempty"`
+	Alert *PrometheusAlertSpec `json:"alert"`
 }
 
 // PrometheusAlertSpec definition of a monitored prometheus alert
@@ -210,7 +210,7 @@ type CounterMeasure struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   CounterMeasureSpec   `json:"spec,omitempty"`
+	Spec   CounterMeasureSpec   `json:"spec"`
 	Status CounterMeasureStatus `json:"status,omitempty"`
 }
 

@@ -134,7 +134,7 @@ func (r *CounterMeasureReconciler) isValid(ctx context.Context, cm *v1alpha1.Cou
 		}
 	}
 
-	return err == nil && len(ValidateSpec(&cm.Spec)) == 0, err
+	return err == nil, err
 }
 
 // SetupWithManager sets up the controller with the Manager.

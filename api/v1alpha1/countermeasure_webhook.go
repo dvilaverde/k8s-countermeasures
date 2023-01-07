@@ -24,9 +24,16 @@ import (
 )
 
 // log is for logging in this package.
-var countermeasurelog = logf.Log.WithName("countermeasure-resource")
+var (
+	countermeasurelog = logf.Log.WithName("countermeasure-resource")
+)
 
 func (r *CounterMeasure) SetupWebhookWithManager(mgr ctrl.Manager) error {
+
+	if webhookClient == nil {
+		webhookClient = mgr.GetClient()
+	}
+
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -50,21 +57,16 @@ var _ webhook.Validator = &CounterMeasure{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *CounterMeasure) ValidateCreate() error {
 	countermeasurelog.Info("validate create", "name", r.Name)
-
-	// TODO: fill in your validation logic upon object creation.
-	return nil
+	return ValidateSpec(&r.Spec)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *CounterMeasure) ValidateUpdate(old runtime.Object) error {
 	countermeasurelog.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
-	return nil
+	return ValidateSpec(&r.Spec)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *CounterMeasure) ValidateDelete() error {
-	countermeasurelog.Info("validate delete", "name", r.Name)
 	return nil
 }
