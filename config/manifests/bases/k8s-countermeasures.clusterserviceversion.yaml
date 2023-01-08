@@ -1,0 +1,50 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: k8s-countermeasures.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: CounterMeasure is the Schema for the countermeasures API
+      displayName: Counter Measure
+      kind: CounterMeasure
+      name: countermeasures.operator.vilaverde.rocks
+      version: v1alpha1
+  description: Runbooks as code
+  displayName: Kubernetes CounterMeasures
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - k8s
+  - runbooks
+  - countermeasures
+  - devops
+  - golang
+  - prometheus
+  links:
+  - name: K8s Countermeasures
+    url: https://k8s-countermeasures.domain
+  maturity: alpha
+  provider:
+    name: vilaverde.rocks
+    url: https://github.com/dvilaverde/k8s-countermeasures
+  version: 0.0.0

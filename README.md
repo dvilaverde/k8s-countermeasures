@@ -1,36 +1,81 @@
-# k8s-countermeasures
+# Kubernetes CounterMeasures
 
 [![Build Status](https://github.com/dvilaverde/k8s-countermeasures/workflows/build/badge.svg)](https://github.com/dvilaverde/k8s-countermeasures/actions)
 
-## Actions
+**Project status: *alpha*** Not all planned features are completed. The API, spec,
+status and other user facing objects may change, but in a backward compatible way.
 
-### Delete
+## Overview
 
-Deletes a Object with a given name in a given namespace.
+## Prerequisites
 
-### Patch
+The Kubernetes CounterMeasures Operator uses [Ephemeral Containers](https://v1-25.docs.kubernetes.io/docs/concepts/workloads/pods/ephemeral-containers/)
+which was *alpha* in Kubernetes `1.22.0`, *beta* in `1.23.0`, and stable in `>=1.25.0`.
+Therefore it is recommended to use verion `>=1.25.0`, but development and testing
+was done with a Kubernetes cluster of version `>=1.23.0`.
 
-Applies a Patch to an Object with a given name in a given namespace.
+## CustomResourceDefinitions
 
-### Restart
 
-Restarts a Deployment with a given name in a given namespace.
+## Dynamic Admission Control
 
-### Debug
+To provide validation an [admission webhook](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/)
+is provided to validate `CounterMeasure` resources upon initial creation or update
+or during dry run.
 
-Will apply a strategic merge patch to a Pod, adding an [ephemeral container](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container) that can be used to run troubleshooting steps.
+For more information on this feature, see the [user guide](docs/webhook.md).
 
-Essentially replicating the `kubectl debug` command like:
+## Quickstart
+
+To quickly try out *just* the Kubernetes CounterMeasures Operator inside a cluster,
+run the following command:
 
 ```bash
-kubectl debug -i --arguments-only -c <debug-container-name> <pod-name> --image=<image:tag> --target=<container-name> -- sh -c ls -l
+TODO: install instructions here
 ```
 
+To run the Operator outside of a cluster:
 
-## Debugging
+```bash
+./hack/start-cluster.sh
+make install
+make run
+```
 
-To debug the controller locally against a running K8s cluster, add this entry to the
-`/etc/hosts` file so that the operator can communicate with Prometheus
+## Removal
+
+To remove the operator, first delete any custom resources you created in each namespace.
+
+```bash
+for n in $(kubectl get namespaces -o jsonpath={..metadata.name}); do
+  kubectl delete --all --namespace=$n countermeasure
+done
+```
+
+After a couple of minutes you can go ahead and remove the operator itself.
+
+```bash
+TODO: delete instructions here
+```
+
+## Development
+
+### Prerequisites
+
+- golang environment
+- docker (used for creating container images, etc.)
+- kind (optional)
+
+### Testing
+
+#### Running *unit tests*
+
+`make test`
+
+### Debugging
+
+To debug the controller locally against a running K8s cluster, add this entry to
+the `/etc/hosts` file so that the operator can communicate with Prometheus.
 
 ```text
 ##
@@ -49,3 +94,18 @@ then enable port forwarding from the development host to the promtheus service:
 ```bash
 kubectl -n monitoring port-forward service/prometheus-operated 9090:9090
 ```
+
+## Contributing
+
+Many files (documentation, manifests, ...) in this repository are
+auto-generated. Before proposing a pull request:
+
+1. Commit your changes.
+2. Run `make generate`.
+3. Commit the generated changes.
+
+## Security
+
+If you find a security vulnerability related to the Kubernetes CounterMeasures
+Operator, please do not report it by opening a GitHub issue, but instead please
+send an e-mail to the owner of this project.
