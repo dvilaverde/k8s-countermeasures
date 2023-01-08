@@ -1,5 +1,7 @@
 # k8s-countermeasures
 
+[![Build Status](https://github.com/dvilaverde/k8s-countermeasures/workflows/build/badge.svg)](https://github.com/dvilaverde/k8s-countermeasures/actions)
+
 ## Actions
 
 ### Delete
@@ -19,7 +21,8 @@ Restarts a Deployment with a given name in a given namespace.
 Will apply a strategic merge patch to a Pod, adding an [ephemeral container](https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container) that can be used to run troubleshooting steps.
 
 Essentially replicating the `kubectl debug` command like:
-```
+
+```bash
 kubectl debug -i --arguments-only -c <debug-container-name> <pod-name> --image=<image:tag> --target=<container-name> -- sh -c ls -l
 ```
 
@@ -29,7 +32,7 @@ kubectl debug -i --arguments-only -c <debug-container-name> <pod-name> --image=<
 To debug the controller locally against a running K8s cluster, add this entry to the
 `/etc/hosts` file so that the operator can communicate with Prometheus
 
-```
+```text
 ##
 # Host Database
 #
@@ -42,6 +45,7 @@ To debug the controller locally against a running K8s cluster, add this entry to
 ```
 
 then enable port forwarding from the development host to the promtheus service:
+
 ```bash
 kubectl -n monitoring port-forward service/prometheus-operated 9090:9090
 ```
