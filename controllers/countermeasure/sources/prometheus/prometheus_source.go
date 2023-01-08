@@ -213,7 +213,6 @@ func (d *EventSource) poll() {
 						}
 					}()
 				}
-
 			}
 		}
 	}

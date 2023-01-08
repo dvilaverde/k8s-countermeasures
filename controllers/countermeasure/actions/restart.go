@@ -30,6 +30,10 @@ func NewRestartFromBase(base BaseAction, spec v1alpha1.RestartSpec) *Restart {
 	}
 }
 
+func (d *Restart) GetType() string {
+	return "restart"
+}
+
 func (r *Restart) GetTargetObjectName(event sources.Event) string {
 	return r.createObjectName("deployment", r.spec.DeploymentRef.Namespace, r.spec.DeploymentRef.Name, event)
 }

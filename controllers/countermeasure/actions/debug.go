@@ -37,6 +37,10 @@ func NewDebugFromBase(base BaseAction,
 	}
 }
 
+func (d *Debug) GetType() string {
+	return "debug"
+}
+
 func (d *Debug) GetTargetObjectName(event sources.Event) string {
 	return d.createObjectName("pod", d.spec.PodRef.Namespace, d.spec.PodRef.Name, event)
 }

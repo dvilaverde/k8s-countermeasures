@@ -18,10 +18,8 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -117,23 +115,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 func (r *CounterMeasureReconciler) isValid(ctx context.Context, cm *v1alpha1.CounterMeasure) (bool, error) {
-
-	var (
-		logger        = log.FromContext(ctx)
-		err           error
-		promSvc       = cm.Spec.Prometheus.Service
-		serviceObject = &corev1.Service{}
-	)
-
-	if err = r.client.Get(ctx, promSvc.GetNamespacedName(), serviceObject); err != nil {
-		if errors.IsNotFound(err) {
-			msg := fmt.Sprintf("service %v:%v not found", promSvc.Namespace, promSvc.Name)
-			return false, errors.NewServiceUnavailable(msg)
-		} else {
-			logger.Error(err, "error getting prometheus target resource", "name", promSvc.Name, "namespace", promSvc.Namespace)
-		}
-	}
-
+	err := v1alpha1.ValidateSpec(&cm.Spec)
 	return err == nil, err
 }
 

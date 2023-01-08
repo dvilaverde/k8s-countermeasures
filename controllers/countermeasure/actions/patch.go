@@ -35,6 +35,10 @@ func NewPatchFromBase(base BaseAction, spec v1alpha1.PatchSpec) *Patch {
 	}
 }
 
+func (d *Patch) GetType() string {
+	return "patch"
+}
+
 func (p *Patch) GetTargetObjectName(event sources.Event) string {
 	target := p.spec.TargetObjectRef
 	return p.createObjectName(target.Kind, target.Namespace, target.Name, event)
