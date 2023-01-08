@@ -16,6 +16,21 @@ was done with a Kubernetes cluster of version `>=1.23.0`.
 
 ## CustomResourceDefinitions
 
+A core feature of the Kubernetes CounterMeasures Operator is to monitor
+the Kubernetes API server for changes to specific objects and ensure that
+your application is monitored for any undesirable conditions and when detected
+the appropriate actions are taken as a counter measure.
+The Operator acts on the following [custom resource definitions (CRDs)](https://kubernetes.io/docs/tasks/access-kubernetes-api/extend-api-custom-resource-definitions/):
+
+* **`CounterMeasure`**, which defines a condition to watch for and actions to take
+when it occurs.
+
+The Kubernetes CounterMeasures operator automatically detects changes
+in the Kubernetes API server to any of the above objects, and ensures
+your the monitors are updated.
+
+To learn more about the CRDs introduced by the Prometheus Operator have a look
+at the [actions doc](docs/actions.md).
 
 ## Dynamic Admission Control
 
