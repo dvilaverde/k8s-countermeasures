@@ -28,6 +28,10 @@ func NewDeleteFromBase(base BaseAction, spec v1alpha1.DeleteSpec) *Delete {
 	}
 }
 
+func (d *Delete) GetType() string {
+	return "delete"
+}
+
 func (d *Delete) GetTargetObjectName(event sources.Event) string {
 	target := d.spec.TargetObjectRef
 	return d.createObjectName(target.Kind, target.Namespace, target.Name, event)

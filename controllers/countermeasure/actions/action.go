@@ -11,6 +11,8 @@ import (
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -28,6 +30,7 @@ type Registry struct {
 type Action interface {
 	Perform(context.Context, sources.Event) (bool, error)
 	GetName() string
+	GetType() string
 	GetTargetObjectName(sources.Event) string
 }
 
@@ -161,16 +164,19 @@ func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, events []
 
 		ctx := context.Background()
 		for _, action := range seq.actions {
+			labels := prometheus.Labels{"namespace": ns.Namespace, "type": action.GetType()}
 			ok, err := action.Perform(ctx, event)
 
 			// TODO: introduce some retrying logic here
 			if err != nil {
+				metrics.ActionErrors.With(labels).Add(1)
 				seq.recorder.Event(cm, "Warning", "ActionError", err.Error())
 				log.Error(err, "action execution error", "name", ns.Name, "namespace", ns.Namespace)
 				break
 			}
 
 			if ok {
+				metrics.ActionsTaken.With(labels).Add(1)
 				msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
 					action.GetName(),
 					action.GetTargetObjectName(event))
