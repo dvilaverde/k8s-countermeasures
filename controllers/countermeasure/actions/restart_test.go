@@ -72,8 +72,9 @@ func TestRestart_Perform(t *testing.T) {
 	}
 
 	restart := NewRestartAction(k8sClient, spec)
+	data := make(events.EventData)
 	_, err = restart.Perform(context.TODO(), events.Event{
-		Data: make(map[string]string),
+		Data: &data,
 	})
 
 	if err != nil {

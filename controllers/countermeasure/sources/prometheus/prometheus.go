@@ -76,7 +76,7 @@ func (r *AlertQueryResult) ToEvents(alertName string, includePending bool) ([]ev
 	eventsArr := make([]events.Event, len(foundAlerts))
 	for idx, alert := range foundAlerts {
 
-		labels := make(map[string]string, len(alert.Labels))
+		labels := make(events.EventData, len(alert.Labels))
 		for label, value := range alert.Labels {
 			labels[string(label)] = string(value)
 		}
@@ -84,7 +84,7 @@ func (r *AlertQueryResult) ToEvents(alertName string, includePending bool) ([]ev
 		event := events.Event{
 			Name:       string(alert.Labels["alertname"]),
 			ActiveTime: alert.ActiveAt,
-			Data:       labels,
+			Data:       &labels,
 		}
 
 		eventsArr[idx] = event

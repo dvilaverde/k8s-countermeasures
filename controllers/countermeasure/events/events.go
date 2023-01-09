@@ -12,17 +12,17 @@ type EventData map[string]string
 type Event struct {
 	Name       string
 	ActiveTime time.Time
-	Data       EventData
+	Data       *EventData
 }
 
 // Key hash the EventData into a key that can be used to de-duplicate events.
 func (e Event) Key() string {
-	if len(e.Data) == 0 && len(e.Name) == 0 {
+	if len(*e.Data) == 0 && len(e.Name) == 0 {
 		return ""
 	}
 
-	keys := make([]string, 0, len(e.Data))
-	for k := range e.Data {
+	keys := make([]string, 0, len(*e.Data))
+	for k := range *e.Data {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -30,7 +30,7 @@ func (e Event) Key() string {
 	var sb strings.Builder
 	sb.WriteString(e.Name)
 	for _, k := range keys {
-		sb.WriteString(e.Data[k])
+		sb.WriteString((*e.Data)[k])
 	}
 
 	h := fnv.New32a()

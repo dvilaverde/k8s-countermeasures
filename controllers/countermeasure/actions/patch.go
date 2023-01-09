@@ -64,7 +64,7 @@ func (p *Patch) Perform(ctx context.Context, event events.Event) (bool, error) {
 	}
 
 	patch, err := p.createPatch(PatchData{
-		EventData:    event.Data,
+		EventData:    *event.Data,
 		Unstructured: object,
 	})
 

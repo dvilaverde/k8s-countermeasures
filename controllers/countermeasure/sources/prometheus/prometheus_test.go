@@ -109,6 +109,7 @@ func TestGetAlerts(t *testing.T) {
 		assert.True(t, errors.As(err, &errPointer))
 	}
 
-	assert.Equal(t, 3, len(events[0].Data))
-	assert.Equal(t, "app-pod-xyxsl", events[0].Data["pod"])
+	data := *events[0].Data
+	assert.Equal(t, 3, len(data))
+	assert.Equal(t, "app-pod-xyxsl", data["pod"])
 }

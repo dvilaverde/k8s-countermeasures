@@ -43,7 +43,7 @@ func TestEvent_Key(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := Event{
 				Name: tt.fields.Name,
-				Data: tt.fields.Data,
+				Data: &tt.fields.Data,
 			}
 			if got := e.Key(); got != tt.want {
 				t.Errorf("Event.Key() = %v, want %v", got, tt.want)

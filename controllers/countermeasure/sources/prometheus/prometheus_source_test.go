@@ -124,7 +124,7 @@ func Test_Notify(t *testing.T) {
 
 	assert.True(t, source.Supports(&cm.Spec))
 	source.NotifyOn(cm, sources.HandlerFunc(func(nn types.NamespacedName, e []events.Event, done chan<- string) {
-		assert.Equal(t, 3, len(e[0].Data))
+		assert.Equal(t, 3, len(*e[0].Data))
 		wg.Done()
 		close(done)
 	}))

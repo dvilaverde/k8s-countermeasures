@@ -60,12 +60,12 @@ func TestDebug_Perform(t *testing.T) {
 	}
 
 	debugAction := NewDebugAction(fakeCoreV1, k8sClient, spec)
-	labels := make(map[string]string)
+	labels := make(events.EventData)
 	labels["pod"] = PodName
 	labels["namespace"] = PodNamespace
 
 	debugAction.Perform(context.TODO(), events.Event{
-		Data: labels,
+		Data: &labels,
 	})
 
 	pod, err := fakeCoreV1.Pods(PodNamespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})

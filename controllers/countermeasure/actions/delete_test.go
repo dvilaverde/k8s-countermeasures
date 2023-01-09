@@ -61,12 +61,12 @@ func TestDelete_Perform(t *testing.T) {
 
 	deleteAction := NewDeleteAction(k8sClient, spec)
 
-	labels := make(map[string]string)
+	labels := make(events.EventData)
 	labels["pod"] = PodName
 	labels["namespace"] = PodNamespace
 
 	deleteAction.Perform(context.TODO(), events.Event{
-		Data: labels,
+		Data: &labels,
 	})
 
 	assertPodExists(t, k8sClient, 0)
