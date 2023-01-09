@@ -90,13 +90,16 @@ func (d *Dispatcher) processNextWorkItem() bool {
 			utilruntime.HandleError(fmt.Errorf("expected Event in workqueue but got %#v", obj))
 			return nil
 		}
+
 		// Run the Actions for a CounterMeasure, it will need context about the CR containing
 		// the action.
-		if err := d.eventListener.OnEvent(event); err != nil {
+		var err error
+		if err = d.eventListener.OnEvent(event); err != nil {
 			// Put the item back on the workqueue to handle any transient errors.
 			d.workqueue.AddRateLimited(event)
 			return fmt.Errorf("error syncing '%s': %s, requeuing", event.Key(), err.Error())
 		}
+
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		d.workqueue.Forget(obj)

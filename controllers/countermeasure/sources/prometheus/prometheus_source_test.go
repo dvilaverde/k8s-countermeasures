@@ -37,9 +37,11 @@ func (m *OperatorSDKClientMock) Get(ctx context.Context,
 
 func Test_callbackSuppressExpired(t *testing.T) {
 
+	data := make(events.EventData)
 	event := events.Event{
 		Name:       "Alert1",
 		ActiveTime: time.Now().Add(-30 * time.Second),
+		Data:       &data,
 	}
 
 	cb := callback{
