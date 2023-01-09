@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,7 +65,7 @@ func TestDelete_Perform(t *testing.T) {
 	labels["pod"] = PodName
 	labels["namespace"] = PodNamespace
 
-	deleteAction.Perform(context.TODO(), sources.Event{
+	deleteAction.Perform(context.TODO(), events.Event{
 		Data: labels,
 	})
 

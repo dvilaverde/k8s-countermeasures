@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,7 +72,7 @@ func TestRestart_Perform(t *testing.T) {
 	}
 
 	restart := NewRestartAction(k8sClient, spec)
-	_, err = restart.Perform(context.TODO(), sources.Event{
+	_, err = restart.Perform(context.TODO(), events.Event{
 		Data: make(map[string]string),
 	})
 

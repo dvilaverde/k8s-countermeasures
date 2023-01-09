@@ -9,7 +9,7 @@ import (
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/assets"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 )
 
 type Restart struct {
@@ -34,12 +34,12 @@ func (d *Restart) GetType() string {
 	return "restart"
 }
 
-func (r *Restart) GetTargetObjectName(event sources.Event) string {
+func (r *Restart) GetTargetObjectName(event events.Event) string {
 	return r.createObjectName("deployment", r.spec.DeploymentRef.Namespace, r.spec.DeploymentRef.Name, event)
 }
 
 // Perform will apply the restart patch to the deployment
-func (r *Restart) Perform(ctx context.Context, event sources.Event) (bool, error) {
+func (r *Restart) Perform(ctx context.Context, event events.Event) (bool, error) {
 	object := &unstructured.Unstructured{}
 
 	gvk := schema.GroupVersionKind{

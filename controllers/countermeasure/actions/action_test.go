@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
@@ -56,7 +56,7 @@ func TestObjectKeyFromTemplate(t *testing.T) {
 	type args struct {
 		namespaceTemplate string
 		nameTemplate      string
-		event             sources.Event
+		event             events.Event
 	}
 	tests := []struct {
 		name string
@@ -68,7 +68,7 @@ func TestObjectKeyFromTemplate(t *testing.T) {
 			args: args{
 				namespaceTemplate: "ns",
 				nameTemplate:      "name",
-				event:             sources.Event{},
+				event:             events.Event{},
 			},
 			want: client.ObjectKey{
 				Namespace: "ns",

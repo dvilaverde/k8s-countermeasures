@@ -6,14 +6,14 @@ import (
 	"text/template"
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
 type PatchData struct {
-	sources.EventData
+	events.EventData
 	*unstructured.Unstructured
 }
 
@@ -39,13 +39,13 @@ func (d *Patch) GetType() string {
 	return "patch"
 }
 
-func (p *Patch) GetTargetObjectName(event sources.Event) string {
+func (p *Patch) GetTargetObjectName(event events.Event) string {
 	target := p.spec.TargetObjectRef
 	return p.createObjectName(target.Kind, target.Namespace, target.Name, event)
 }
 
 // Perform will apply the patch to the object
-func (p *Patch) Perform(ctx context.Context, event sources.Event) (bool, error) {
+func (p *Patch) Perform(ctx context.Context, event events.Event) (bool, error) {
 
 	gvk, err := p.spec.TargetObjectRef.ToGroupVersionKind()
 	if err != nil {

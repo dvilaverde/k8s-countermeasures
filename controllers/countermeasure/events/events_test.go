@@ -1,4 +1,4 @@
-package sources
+package events
 
 import (
 	"testing"
@@ -20,7 +20,7 @@ func TestEvent_Key(t *testing.T) {
 				Name: "Alert1",
 				Data: map[string]string{"k1": "v1", "k2": "v2"},
 			},
-			want: "826570cc862a961ab7edc4b1dbbb0caefc4dfcaf",
+			want: "327f7f85",
 		},
 		{
 			name: "no-data",
@@ -28,7 +28,7 @@ func TestEvent_Key(t *testing.T) {
 				Name: "Alert1",
 				Data: map[string]string{},
 			},
-			want: "6c607fd2fef2718899cd84049e5d7197498fcb6e",
+			want: "d6990678",
 		},
 		{
 			name: "empty",

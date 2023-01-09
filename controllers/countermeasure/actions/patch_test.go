@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -110,7 +110,7 @@ func runAction(dryRun bool) (*v1.Deployment, error) {
 
 	patch := NewPatchAction(k8sClient, spec)
 	patch.DryRun = dryRun
-	_, err = patch.Perform(context.TODO(), sources.Event{
+	_, err = patch.Perform(context.TODO(), events.Event{
 		Data: make(map[string]string),
 	})
 
@@ -203,7 +203,7 @@ func TestPatch_createPatch(t *testing.T) {
 
 	object := &unstructured.Unstructured{}
 	object.SetGroupVersionKind(gvk)
-	objectName := ObjectKeyFromTemplate(PodNamespace, PodName, sources.Event{})
+	objectName := ObjectKeyFromTemplate(PodNamespace, PodName, events.Event{})
 	err = k8sClient.Get(context.TODO(), objectName, object)
 	if err != nil {
 		t.Error(err)

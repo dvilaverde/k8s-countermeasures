@@ -13,6 +13,7 @@ import (
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
 	cm "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -163,7 +164,7 @@ func (d *EventSource) poll() {
 			cb.removeExpiredSuppressions()
 
 			alertSpec := cb.alertSpec
-			events, err := alerts.ToEvents(alertSpec.AlertName, alertSpec.IncludePending)
+			activeEvents, err := alerts.ToEvents(alertSpec.AlertName, alertSpec.IncludePending)
 			if err != nil {
 				var errPointer *AlertNotFiring
 				if !errors.As(err, &errPointer) {
@@ -171,13 +172,13 @@ func (d *EventSource) poll() {
 				}
 			}
 
-			var unsuppressed []sources.Event
+			var unsuppressed []events.Event
 			if len(cb.suppressedAlerts) == 0 {
-				unsuppressed = events
+				unsuppressed = activeEvents
 			} else {
 				// filter any events that are being suppressed
-				unsuppressed = make([]sources.Event, 0)
-				for _, e := range events {
+				unsuppressed = make([]events.Event, 0)
+				for _, e := range activeEvents {
 					if _, ok := cb.suppressedAlerts[e.Key()]; !ok {
 						unsuppressed = append(unsuppressed, e)
 					}
@@ -191,7 +192,7 @@ func (d *EventSource) poll() {
 				go cb.handler.OnDetection(cb.name, unsuppressed, callbackChannel)
 
 				if cb.alertSpec.SuppressionPolicy != nil {
-					go func(c *callback, e []sources.Event) {
+					go func(c *callback, e []events.Event) {
 						eventTimes := make(map[string]time.Time)
 
 						for _, event := range e {

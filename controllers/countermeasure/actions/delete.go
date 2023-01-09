@@ -4,7 +4,7 @@ import (
 	"context"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,12 +32,12 @@ func (d *Delete) GetType() string {
 	return "delete"
 }
 
-func (d *Delete) GetTargetObjectName(event sources.Event) string {
+func (d *Delete) GetTargetObjectName(event events.Event) string {
 	target := d.spec.TargetObjectRef
 	return d.createObjectName(target.Kind, target.Namespace, target.Name, event)
 }
 
-func (d *Delete) Perform(ctx context.Context, event sources.Event) (bool, error) {
+func (d *Delete) Perform(ctx context.Context, event events.Event) (bool, error) {
 	target := d.spec.TargetObjectRef
 	gvk, err := target.ToGroupVersionKind()
 	if err != nil {

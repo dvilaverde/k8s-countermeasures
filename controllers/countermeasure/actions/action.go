@@ -10,7 +10,7 @@ import (
 	"text/template"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,10 +28,10 @@ type Registry struct {
 }
 
 type Action interface {
-	Perform(context.Context, sources.Event) (bool, error)
+	Perform(context.Context, events.Event) (bool, error)
 	GetName() string
 	GetType() string
-	GetTargetObjectName(sources.Event) string
+	GetTargetObjectName(events.Event) string
 }
 
 type ActionHandlerSequence struct {
@@ -59,7 +59,7 @@ func (b *BaseAction) GetName() string {
 }
 
 // createObjectName evaluate the template (if any) in name and namespace to produce an object name.
-func (b *BaseAction) createObjectName(kind, namespace, name string, data sources.Event) string {
+func (b *BaseAction) createObjectName(kind, namespace, name string, data events.Event) string {
 	return fmt.Sprintf("%s: '%s/%s'", strings.ToLower(kind),
 		evaluateTemplate(namespace, data),
 		evaluateTemplate(name, data))
@@ -133,14 +133,14 @@ func (r *Registry) ConvertToHandler(countermeasure *v1alpha1.CounterMeasure, bui
 }
 
 // ObjectKeyFromTemplate create a client.ObjectKey from a namespace and name template.
-func ObjectKeyFromTemplate(namespaceTemplate, nameTemplate string, event sources.Event) client.ObjectKey {
+func ObjectKeyFromTemplate(namespaceTemplate, nameTemplate string, event events.Event) client.ObjectKey {
 	return client.ObjectKey{
 		Namespace: evaluateTemplate(namespaceTemplate, event),
 		Name:      evaluateTemplate(nameTemplate, event),
 	}
 }
 
-func evaluateTemplate(templateString string, event sources.Event) string {
+func evaluateTemplate(templateString string, event events.Event) string {
 	tmpl := template.Must(template.New("").Parse(templateString))
 	var buf bytes.Buffer
 	tmpl.Execute(&buf, event)
@@ -148,7 +148,7 @@ func evaluateTemplate(templateString string, event sources.Event) string {
 }
 
 // OnDetection called when an alert condition is detected.
-func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, events []sources.Event, eventDone chan<- string) {
+func (seq *ActionHandlerSequence) OnDetection(ns types.NamespacedName, events []events.Event, eventDone chan<- string) {
 
 	seq.mutex.Lock()
 	defer seq.mutex.Unlock()

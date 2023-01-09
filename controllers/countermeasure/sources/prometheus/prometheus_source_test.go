@@ -8,6 +8,7 @@ import (
 	"time"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +37,7 @@ func (m *OperatorSDKClientMock) Get(ctx context.Context,
 
 func Test_callbackSuppressExpired(t *testing.T) {
 
-	event := sources.Event{
+	event := events.Event{
 		Name:       "Alert1",
 		ActiveTime: time.Now().Add(-30 * time.Second),
 	}
@@ -122,7 +123,7 @@ func Test_Notify(t *testing.T) {
 	wg.Add(1)
 
 	assert.True(t, source.Supports(&cm.Spec))
-	source.NotifyOn(cm, sources.HandlerFunc(func(nn types.NamespacedName, e []sources.Event, done chan<- string) {
+	source.NotifyOn(cm, sources.HandlerFunc(func(nn types.NamespacedName, e []events.Event, done chan<- string) {
 		assert.Equal(t, 3, len(e[0].Data))
 		wg.Done()
 		close(done)
