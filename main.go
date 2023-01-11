@@ -148,12 +148,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&countermeasurev1alpha1.CounterMeasure{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "CounterMeasure")
-			os.Exit(1)
-		}
-	}
 	if err = (&eventsourcecontrollers.PrometheusReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -161,6 +155,19 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Prometheus")
 		os.Exit(1)
 	}
+
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err = (&countermeasurev1alpha1.CounterMeasure{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "CounterMeasure")
+			os.Exit(1)
+		}
+
+		if err = (&eventsourcev1alpha1.Prometheus{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Prometheus")
+			os.Exit(1)
+		}
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

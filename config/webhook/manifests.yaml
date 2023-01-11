@@ -25,6 +25,26 @@ webhooks:
     resources:
     - countermeasures
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-eventsource-vilaverde-rocks-v1alpha1-prometheus
+  failurePolicy: Fail
+  name: mprometheus.kb.io
+  rules:
+  - apiGroups:
+    - eventsource.vilaverde.rocks
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - prometheuses
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -51,4 +71,24 @@ webhooks:
     - UPDATE
     resources:
     - countermeasures
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-eventsource-vilaverde-rocks-v1alpha1-prometheus
+  failurePolicy: Fail
+  name: vprometheus.kb.io
+  rules:
+  - apiGroups:
+    - eventsource.vilaverde.rocks
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - prometheuses
   sideEffects: None
