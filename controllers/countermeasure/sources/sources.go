@@ -1,7 +1,7 @@
 package sources
 
 import (
-	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"k8s.io/apimachinery/pkg/types"
 )

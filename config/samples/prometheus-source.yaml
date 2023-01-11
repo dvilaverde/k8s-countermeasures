@@ -1,7 +1,7 @@
 apiVersion: countermeasure.vilaverde.rocks/v1alpha1
-kind: CounterMeasure
+kind: PrometheusEventSource
 metadata:
-  name: restart-action
+  name: p8s-source
   labels:
     app.kubernetes.io/name: countermeasure
     app.kubernetes.io/instance: countermeasure-sample
@@ -9,16 +9,11 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: k8s-countermeasures
 spec:
-  prometheus:
-    service:
-      name: prometheus-operated
-      namespace: monitoring
-    alert:
-      name: HTTP_404
-      includePending: false
-  actions:
-  - name: delete-pod
-    restart:
-      deploymentRef: 
-        name: monitored-app
-        namespace: ns-custom
+  serviceRef:
+    name: prometheus-operated
+    namespace: monitoring
+  auth:
+    secretRef:
+      name: p8s-basic-auth
+  includePending: false
+  pollingInterval: 30s

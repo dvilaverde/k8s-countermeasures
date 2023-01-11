@@ -1,4 +1,4 @@
-apiVersion: operator.vilaverde.rocks/v1alpha1
+apiVersion: countermeasure.vilaverde.rocks/v1alpha1
 kind: CounterMeasure
 metadata:
   name: patch-action
@@ -25,7 +25,7 @@ spec:
           template:
             metadata:
               annotations:
-                operator.vilaverde.rocks/restarted: "true"
+                countermeasure.vilaverde.rocks/restarted: "true"
       targetObjectRef: 
         apiVersion: apps/v1
         kind: Deployment

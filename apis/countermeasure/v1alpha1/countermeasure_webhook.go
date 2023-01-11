@@ -43,7 +43,7 @@ func (r *CounterMeasure) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-operator-vilaverde-rocks-v1alpha1-countermeasure,mutating=true,failurePolicy=fail,sideEffects=None,groups=operator.vilaverde.rocks,resources=countermeasures,verbs=create;update,versions=v1alpha1,name=mcountermeasure.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-countermeasure-vilaverde-rocks-v1alpha1-countermeasure,mutating=true,failurePolicy=fail,sideEffects=None,groups=countermeasure.vilaverde.rocks,resources=countermeasures,verbs=create;update,versions=v1alpha1,name=mcountermeasure.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &CounterMeasure{}
 
@@ -54,7 +54,7 @@ func (r *CounterMeasure) Default() {
 	// TODO: fill in your defaulting logic.
 }
 
-//+kubebuilder:webhook:path=/validate-operator-vilaverde-rocks-v1alpha1-countermeasure,mutating=false,failurePolicy=fail,sideEffects=None,groups=operator.vilaverde.rocks,resources=countermeasures,verbs=create;update,versions=v1alpha1,name=vcountermeasure.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-countermeasure-vilaverde-rocks-v1alpha1-countermeasure,mutating=false,failurePolicy=fail,sideEffects=None,groups=countermeasure.vilaverde.rocks,resources=countermeasures,verbs=create;update,versions=v1alpha1,name=vcountermeasure.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &CounterMeasure{}
 

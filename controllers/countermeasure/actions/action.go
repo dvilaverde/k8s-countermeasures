@@ -9,9 +9,9 @@ import (
 	"sync"
 	"text/template"
 
-	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/metrics"
+	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"

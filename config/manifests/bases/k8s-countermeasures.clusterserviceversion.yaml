@@ -13,7 +13,7 @@ spec:
     - description: CounterMeasure is the Schema for the countermeasures API
       displayName: Counter Measure
       kind: CounterMeasure
-      name: countermeasures.operator.vilaverde.rocks
+      name: countermeasures.countermeasure.vilaverde.rocks
       version: v1alpha1
   description: Runbooks as code
   displayName: Kubernetes CounterMeasures

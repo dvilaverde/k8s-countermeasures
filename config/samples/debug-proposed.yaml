@@ -1,7 +1,7 @@
 apiVersion: countermeasure.vilaverde.rocks/v1alpha1
 kind: CounterMeasure
 metadata:
-  name: delete-action
+  name: debug-action
   labels:
     app.kubernetes.io/name: countermeasure
     app.kubernetes.io/instance: countermeasure-sample
@@ -9,18 +9,22 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: k8s-countermeasures
 spec:
-  prometheus:
-    service:
-      name: prometheus-operated
-      namespace: monitoring
-    alert:
-      name: HTTP_404
-      includePending: false
+  onEvent:
+    named: HTTP_404
+    fromSource:
+      name: prometheus
+      namespace: ns-custom
   actions:
-  - name: delete-pod
-    delete:
-      targetObjectRef: 
+  - name: debug-pod
+    debug:
+      name: debugger
+      command:
+      - "touch"
+      args:
+      - "/proc/1/root/iwashere.txt"
+      image: busybox:1.28
+      stdin: true
+      podRef: 
         name: "{{ .Data.pod }}"
         namespace: "{{ .Data.namespace }}"
-        kind: Pod
-        apiVersion: v1
+        container: main

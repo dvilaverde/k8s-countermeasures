@@ -35,8 +35,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers"
+	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
+	countermeasure "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources/prometheus"
 	//+kubebuilder:scaffold:imports
@@ -135,8 +135,8 @@ func main() {
 	sources[0] = source
 	mgr.Add(source)
 
-	reconciler := &controllers.CounterMeasureReconciler{
-		ReconcilerBase: controllers.NewFromManager(mgr, mgr.GetEventRecorderFor("countermeasure_controller")),
+	reconciler := &countermeasure.CounterMeasureReconciler{
+		ReconcilerBase: countermeasure.NewFromManager(mgr, mgr.GetEventRecorderFor("countermeasure_controller")),
 		EventSources:   sources,
 		Log:            ctrl.Log.WithName("controllers").WithName("countermeasure"),
 	}

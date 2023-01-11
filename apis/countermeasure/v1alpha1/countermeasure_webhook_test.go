@@ -76,7 +76,7 @@ var _ = Describe("CounterMeasures webhook", func() {
 			ctx := context.Background()
 			counterMeasure := &CounterMeasure{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "operator.vilaverde.rocks/v1alpha1",
+					APIVersion: "countermeasure.vilaverde.rocks/v1alpha1",
 					Kind:       "CounterMeasure",
 				},
 				ObjectMeta: metav1.ObjectMeta{
@@ -114,7 +114,7 @@ var _ = Describe("CounterMeasures webhook", func() {
 		It("should fail if not provided an event source and one or more actions", func() {
 			counterMeasure := &CounterMeasure{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "operator.vilaverde.rocks/v1alpha1",
+					APIVersion: "countermeasure.vilaverde.rocks/v1alpha1",
 					Kind:       "CounterMeasure",
 				},
 				ObjectMeta: metav1.ObjectMeta{
@@ -134,7 +134,7 @@ var _ = Describe("CounterMeasures webhook", func() {
 		It("should fail if actions have too many types", func() {
 			counterMeasure := &CounterMeasure{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "operator.vilaverde.rocks/v1alpha1",
+					APIVersion: "countermeasure.vilaverde.rocks/v1alpha1",
 					Kind:       "CounterMeasure",
 				},
 				ObjectMeta: metav1.ObjectMeta{
@@ -173,7 +173,7 @@ var _ = Describe("CounterMeasures webhook", func() {
 		It("should fail if there is no event source", func() {
 			counterMeasure := &CounterMeasure{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "operator.vilaverde.rocks/v1alpha1",
+					APIVersion: "countermeasure.vilaverde.rocks/v1alpha1",
 					Kind:       "CounterMeasure",
 				},
 				ObjectMeta: metav1.ObjectMeta{
@@ -207,7 +207,7 @@ var _ = Describe("CounterMeasures webhook", func() {
 		It("should fail if there a reference to a missing secret", func() {
 			counterMeasure := &CounterMeasure{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "operator.vilaverde.rocks/v1alpha1",
+					APIVersion: "countermeasure.vilaverde.rocks/v1alpha1",
 					Kind:       "CounterMeasure",
 				},
 				ObjectMeta: metav1.ObjectMeta{
@@ -246,7 +246,7 @@ var _ = Describe("CounterMeasures webhook", func() {
 		It("should fail if there a reference to a missing p8s service", func() {
 			counterMeasure := &CounterMeasure{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "operator.vilaverde.rocks/v1alpha1",
+					APIVersion: "countermeasure.vilaverde.rocks/v1alpha1",
 					Kind:       "CounterMeasure",
 				},
 				ObjectMeta: metav1.ObjectMeta{

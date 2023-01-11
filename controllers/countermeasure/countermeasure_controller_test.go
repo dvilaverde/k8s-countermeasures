@@ -1,11 +1,11 @@
-package controllers
+package countermeasure
 
 import (
 	"context"
 	"strings"
 	"time"
 
-	cmv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	cmv1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -53,7 +53,7 @@ var _ = Describe("CounterMeasures controller", func() {
 			ctx := context.Background()
 			counterMeasure := &cmv1alpha1.CounterMeasure{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "operator.vilaverde.rocks/v1alpha1",
+					APIVersion: "countermeasure.vilaverde.rocks/v1alpha1",
 					Kind:       "CounterMeasure",
 				},
 				ObjectMeta: metav1.ObjectMeta{

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"

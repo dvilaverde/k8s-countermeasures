@@ -1,4 +1,4 @@
-apiVersion: operator.vilaverde.rocks/v1alpha1
+apiVersion: countermeasure.vilaverde.rocks/v1alpha1
 kind: CounterMeasure
 metadata:
   name: debug-action

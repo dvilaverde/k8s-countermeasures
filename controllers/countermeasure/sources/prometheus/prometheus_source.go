@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
-	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	cm "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"

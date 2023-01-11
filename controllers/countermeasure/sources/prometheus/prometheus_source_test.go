@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
@@ -105,7 +105,7 @@ func Test_Notify(t *testing.T) {
 	}
 
 	cm := v1alpha1.CounterMeasure{
-		TypeMeta:   metav1.TypeMeta{Kind: "CounterMeasure", APIVersion: "operator.vilaverde.rocks/v1alpha1"},
+		TypeMeta:   metav1.TypeMeta{Kind: "CounterMeasure", APIVersion: "countermeasure.vilaverde.rocks/v1alpha1"},
 		ObjectMeta: metav1.ObjectMeta{Name: "cm1", Namespace: "ns1"},
 		Spec: v1alpha1.CounterMeasureSpec{
 			Prometheus: &v1alpha1.PrometheusSpec{

@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -91,7 +91,7 @@ func TestRestart_Perform(t *testing.T) {
 
 	meta := deployment.Spec.Template.ObjectMeta
 
-	_, ok := meta.Annotations["operator.vilaverde.rocks/restarted"]
+	_, ok := meta.Annotations["countermeasure.vilaverde.rocks/restarted"]
 	assert.True(t, ok, "should have annotation")
-	assert.True(t, len(meta.Annotations["operator.vilaverde.rocks/restarted"]) > 0, "should have date")
+	assert.True(t, len(meta.Annotations["countermeasure.vilaverde.rocks/restarted"]) > 0, "should have date")
 }

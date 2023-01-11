@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package countermeasure
 
 import (
 	"context"
@@ -25,8 +25,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	util "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/actions"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
 )
@@ -48,9 +47,9 @@ type CounterMeasureReconciler struct {
 // Refer to the following URL for the K8s API groups:
 // https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#-strong-api-groups-strong-
 //
-//+kubebuilder:rbac:groups=operator.vilaverde.rocks,resources=countermeasures,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=operator.vilaverde.rocks,resources=countermeasures/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=operator.vilaverde.rocks,resources=countermeasures/finalizers,verbs=update
+//+kubebuilder:rbac:groups=countermeasure.vilaverde.rocks,resources=countermeasures,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=countermeasure.vilaverde.rocks,resources=countermeasures/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=countermeasure.vilaverde.rocks,resources=countermeasures/finalizers,verbs=update
 //+kubebuilder:rbac:groups=apps,resources=*,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=autoscaling,resources=*,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=batch,resources=*,verbs=get;list;watch;create;update;patch;delete
@@ -132,7 +131,7 @@ func (r *CounterMeasureReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *CounterMeasureReconciler) isAlreadyMonitored(cm *v1alpha1.CounterMeasure) bool {
 
-	nsName := util.ToNamespaceName(&cm.ObjectMeta)
+	nsName := ToNamespaceName(&cm.ObjectMeta)
 	// if the generation hasn't changed from what we're monitoring then short return
 	if handle, ok := r.monitored[nsName.String()]; ok {
 		if handle.generation == cm.Generation {
@@ -146,7 +145,7 @@ func (r *CounterMeasureReconciler) isAlreadyMonitored(cm *v1alpha1.CounterMeasur
 // StartMonitoring will start monitoring a resource for events that require action
 func (r *CounterMeasureReconciler) startMonitoring(countermeasure *v1alpha1.CounterMeasure) error {
 	found := false
-	nsName := util.ToNamespaceName(&countermeasure.ObjectMeta)
+	nsName := ToNamespaceName(&countermeasure.ObjectMeta)
 
 	for _, source := range r.EventSources {
 		if source.Supports(&countermeasure.Spec) {

@@ -11,12 +11,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-operator-vilaverde-rocks-v1alpha1-countermeasure
+      path: /mutate-countermeasure-vilaverde-rocks-v1alpha1-countermeasure
   failurePolicy: Fail
   name: mcountermeasure.kb.io
   rules:
   - apiGroups:
-    - operator.vilaverde.rocks
+    - countermeasure.vilaverde.rocks
     apiVersions:
     - v1alpha1
     operations:
@@ -38,12 +38,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-operator-vilaverde-rocks-v1alpha1-countermeasure
+      path: /validate-countermeasure-vilaverde-rocks-v1alpha1-countermeasure
   failurePolicy: Fail
   name: vcountermeasure.kb.io
   rules:
   - apiGroups:
-    - operator.vilaverde.rocks
+    - countermeasure.vilaverde.rocks
     apiVersions:
     - v1alpha1
     operations:

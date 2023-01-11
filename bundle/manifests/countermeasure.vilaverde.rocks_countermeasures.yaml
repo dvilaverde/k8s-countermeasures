@@ -5,7 +5,7 @@ metadata:
     cert-manager.io/inject-ca-from: k8s-countermeasures-system/k8s-countermeasures-serving-cert
     controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
-  name: countermeasures.operator.vilaverde.rocks
+  name: countermeasures.countermeasure.vilaverde.rocks
 spec:
   conversion:
     strategy: Webhook
@@ -17,7 +17,7 @@ spec:
           path: /convert
       conversionReviewVersions:
       - v1
-  group: operator.vilaverde.rocks
+  group: countermeasure.vilaverde.rocks
   names:
     kind: CounterMeasure
     listKind: CounterMeasureList

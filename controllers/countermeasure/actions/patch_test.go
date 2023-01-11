@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -29,9 +29,9 @@ func TestPatch_Perform(t *testing.T) {
 
 	meta := deployment.Spec.Template.ObjectMeta
 
-	annotationValue, ok := meta.Annotations["operator.vilaverde.rocks/restarted"]
+	annotationValue, ok := meta.Annotations["countermeasure.vilaverde.rocks/restarted"]
 	assert.True(t, ok, "should have annotation")
-	assert.True(t, len(meta.Annotations["operator.vilaverde.rocks/restarted"]) > 0, "should have true value")
+	assert.True(t, len(meta.Annotations["countermeasure.vilaverde.rocks/restarted"]) > 0, "should have true value")
 	assert.Equal(t, "true", annotationValue)
 }
 
@@ -44,7 +44,7 @@ func TestPatch_PerformDryRun(t *testing.T) {
 
 	meta := deployment.Spec.Template.ObjectMeta
 
-	annotationValue, ok := meta.Annotations["operator.vilaverde.rocks/restarted"]
+	annotationValue, ok := meta.Annotations["countermeasure.vilaverde.rocks/restarted"]
 	assert.False(t, ok, "should not have annotation")
 	assert.Equal(t, "", annotationValue)
 }
@@ -105,7 +105,7 @@ func runAction(dryRun bool) (*v1.Deployment, error) {
   template:
     metadata:
       annotations:
-        operator.vilaverde.rocks/restarted: "true"`,
+        countermeasure.vilaverde.rocks/restarted: "true"`,
 	}
 
 	patch := NewPatchAction(k8sClient, spec)

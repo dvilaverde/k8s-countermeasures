@@ -5,7 +5,7 @@ metadata:
     alm-examples: |-
       [
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -52,7 +52,7 @@ metadata:
           }
         },
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -91,7 +91,7 @@ metadata:
           }
         },
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -132,7 +132,7 @@ metadata:
           }
         },
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -156,7 +156,7 @@ metadata:
                     "name": "monitored-app",
                     "namespace": "ns-custom"
                   },
-                  "yamlTemplate": "spec:\n  template:\n    metadata:\n      annotations:\n        operator.vilaverde.rocks/restarted: \"true\"\n"
+                  "yamlTemplate": "spec:\n  template:\n    metadata:\n      annotations:\n        countermeasure.vilaverde.rocks/restarted: \"true\"\n"
                 }
               }
             ],
@@ -173,7 +173,7 @@ metadata:
           }
         },
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -217,7 +217,7 @@ metadata:
           }
         },
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -255,7 +255,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-01-08T02:36:44Z"
+    createdAt: "2023-01-11T02:11:46Z"
     operators.operatorframework.io/builder: operator-sdk-v1.26.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: k8s-countermeasures.v0.0.1
@@ -267,7 +267,7 @@ spec:
     - description: CounterMeasure is the Schema for the countermeasures API
       displayName: Counter Measure
       kind: CounterMeasure
-      name: countermeasures.operator.vilaverde.rocks
+      name: countermeasures.countermeasure.vilaverde.rocks
       version: v1alpha1
   description: Runbooks as code
   displayName: Kubernetes CounterMeasures
@@ -327,19 +327,7 @@ spec:
           - update
           - watch
         - apiGroups:
-          - networking.k8s.io
-          resources:
-          - '*'
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - operator.vilaverde.rocks
+          - countermeasure.vilaverde.rocks
           resources:
           - countermeasures
           verbs:
@@ -351,19 +339,31 @@ spec:
           - update
           - watch
         - apiGroups:
-          - operator.vilaverde.rocks
+          - countermeasure.vilaverde.rocks
           resources:
           - countermeasures/finalizers
           verbs:
           - update
         - apiGroups:
-          - operator.vilaverde.rocks
+          - countermeasure.vilaverde.rocks
           resources:
           - countermeasures/status
           verbs:
           - get
           - patch
           - update
+        - apiGroups:
+          - networking.k8s.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - rbac.authorization.k8s.io
           resources:
@@ -565,7 +565,7 @@ spec:
     - v1
     containerPort: 443
     conversionCRDs:
-    - countermeasures.operator.vilaverde.rocks
+    - countermeasures.countermeasure.vilaverde.rocks
     deploymentName: k8s-countermeasures-controller-manager
     generateName: ccountermeasures.kb.io
     sideEffects: None
@@ -580,7 +580,7 @@ spec:
     generateName: mcountermeasure.kb.io
     rules:
     - apiGroups:
-      - operator.vilaverde.rocks
+      - countermeasure.vilaverde.rocks
       apiVersions:
       - v1alpha1
       operations:
@@ -591,7 +591,7 @@ spec:
     sideEffects: None
     targetPort: 9443
     type: MutatingAdmissionWebhook
-    webhookPath: /mutate-operator-vilaverde-rocks-v1alpha1-countermeasure
+    webhookPath: /mutate-countermeasure-vilaverde-rocks-v1alpha1-countermeasure
   - admissionReviewVersions:
     - v1
     containerPort: 443
@@ -600,7 +600,7 @@ spec:
     generateName: vcountermeasure.kb.io
     rules:
     - apiGroups:
-      - operator.vilaverde.rocks
+      - countermeasure.vilaverde.rocks
       apiVersions:
       - v1alpha1
       operations:
@@ -611,4 +611,4 @@ spec:
     sideEffects: None
     targetPort: 9443
     type: ValidatingAdmissionWebhook
-    webhookPath: /validate-operator-vilaverde-rocks-v1alpha1-countermeasure
+    webhookPath: /validate-countermeasure-vilaverde-rocks-v1alpha1-countermeasure

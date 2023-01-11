@@ -1,6 +1,7 @@
 domain: vilaverde.rocks
 layout:
 - go.kubebuilder.io/v3
+multigroup: true
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
@@ -12,9 +13,9 @@ resources:
     namespaced: true
   controller: true
   domain: vilaverde.rocks
-  group: operator
+  group: countermeasure
   kind: CounterMeasure
-  path: github.com/dvilaverde/k8s-countermeasures/api/v1alpha1
+  path: github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1
   version: v1alpha1
   webhooks:
     defaulting: true
