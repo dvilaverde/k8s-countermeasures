@@ -42,6 +42,7 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 	}
 
 	<-ctx.Done()
+	d.logger.Info("stopping event dispatcher")
 	return nil
 }
 

@@ -81,6 +81,9 @@ func TestDispatcher_DispatchRetry(t *testing.T) {
 	}
 
 	dispatcher.EnqueueEvent(e1)
+
+	// add an invalid item to the queue to make sure the dispatcher ignores it
+	dispatcher.workqueue.Add("should throw this out")
 	assert.Eventually(t, func() bool {
 		return len(listener.events) == 1
 	}, time.Second*5, time.Millisecond*50, "expected the event to be dequeued")
