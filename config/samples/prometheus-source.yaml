@@ -1,5 +1,5 @@
-apiVersion: countermeasure.vilaverde.rocks/v1alpha1
-kind: PrometheusEventSource
+apiVersion: eventsource.vilaverde.rocks/v1alpha1
+kind: Prometheus
 metadata:
   name: p8s-source
   labels:

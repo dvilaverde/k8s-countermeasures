@@ -24,6 +24,7 @@ The Operator acts on the following [custom resource definitions (CRDs)](https://
 
 * **`CounterMeasure`**, which defines a condition to watch for and actions to take
 when it occurs.
+* **`Prometheus`**, which defines an event source that trigger the counter measures.
 
 The Kubernetes CounterMeasures operator automatically detects changes
 in the Kubernetes API server to any of the above objects, and ensures

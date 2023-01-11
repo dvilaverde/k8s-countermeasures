@@ -15,6 +15,11 @@ spec:
       kind: CounterMeasure
       name: countermeasures.countermeasure.vilaverde.rocks
       version: v1alpha1
+    - description: Prometheus is the Schema for the prometheuses API
+      displayName: Prometheus
+      kind: Prometheus
+      name: prometheus.eventsource.vilaverde.rocks
+      version: v1alpha1
   description: Runbooks as code
   displayName: Kubernetes CounterMeasures
   icon:

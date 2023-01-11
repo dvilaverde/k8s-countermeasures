@@ -252,10 +252,25 @@ metadata:
               }
             }
           }
+        },
+        {
+          "apiVersion": "eventsource.vilaverde.rocks/v1alpha1",
+          "kind": "Prometheus",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/created-by": "k8s-countermeasures",
+              "app.kubernetes.io/instance": "prometheus-sample",
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "prometheus",
+              "app.kubernetes.io/part-of": "k8s-countermeasures"
+            },
+            "name": "prometheus-sample"
+          },
+          "spec": null
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-01-11T02:11:46Z"
+    createdAt: "2023-01-11T02:35:22Z"
     operators.operatorframework.io/builder: operator-sdk-v1.26.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: k8s-countermeasures.v0.0.1
@@ -268,6 +283,9 @@ spec:
       displayName: Counter Measure
       kind: CounterMeasure
       name: countermeasures.countermeasure.vilaverde.rocks
+      version: v1alpha1
+    - kind: Prometheus
+      name: prometheuses.eventsource.vilaverde.rocks
       version: v1alpha1
   description: Runbooks as code
   displayName: Kubernetes CounterMeasures
@@ -348,6 +366,32 @@ spec:
           - countermeasure.vilaverde.rocks
           resources:
           - countermeasures/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - eventsource.vilaverde.rocks
+          resources:
+          - prometheuses
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - eventsource.vilaverde.rocks
+          resources:
+          - prometheuses/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - eventsource.vilaverde.rocks
+          resources:
+          - prometheuses/status
           verbs:
           - get
           - patch

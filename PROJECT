@@ -21,4 +21,13 @@ resources:
     defaulting: true
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: vilaverde.rocks
+  group: eventsource
+  kind: Prometheus
+  path: github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1
+  version: v1alpha1
 version: "3"

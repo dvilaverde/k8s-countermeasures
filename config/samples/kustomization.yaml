@@ -6,4 +6,5 @@ resources:
 - patch-strategic.yaml
 - patch.yaml
 - restart.yaml
+- eventsource_v1alpha1_prometheus.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

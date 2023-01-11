@@ -80,6 +80,32 @@ rules:
   - patch
   - update
 - apiGroups:
+  - eventsource.vilaverde.rocks
+  resources:
+  - prometheuses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - eventsource.vilaverde.rocks
+  resources:
+  - prometheuses/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - eventsource.vilaverde.rocks
+  resources:
+  - prometheuses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - networking.k8s.io
   resources:
   - '*'

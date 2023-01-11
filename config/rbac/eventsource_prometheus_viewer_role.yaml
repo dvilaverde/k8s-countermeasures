@@ -1,0 +1,27 @@
+# permissions for end users to view prometheuses.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: prometheus-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: k8s-countermeasures
+    app.kubernetes.io/part-of: k8s-countermeasures
+    app.kubernetes.io/managed-by: kustomize
+  name: prometheus-viewer-role
+rules:
+- apiGroups:
+  - eventsource.vilaverde.rocks
+  resources:
+  - prometheuses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - eventsource.vilaverde.rocks
+  resources:
+  - prometheuses/status
+  verbs:
+  - get
