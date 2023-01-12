@@ -3,12 +3,12 @@ package countermeasure
 import (
 	"strings"
 
-	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func ServiceToKey(svcRef *v1alpha1.ServiceReference) string {
+func ServiceToKey(svcRef v1alpha1.ServiceReference) string {
 	if svcRef.Namespace == "" {
 		return svcRef.Name
 	}

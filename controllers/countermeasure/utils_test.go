@@ -4,14 +4,14 @@ import (
 	"reflect"
 	"testing"
 
-	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
+	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestServiceToKey(t *testing.T) {
-	svc := &v1alpha1.ServiceReference{
+	svc := v1alpha1.ServiceReference{
 		Namespace: "ns",
 		Name:      "svc",
 	}

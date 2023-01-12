@@ -17,8 +17,15 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
+	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -26,7 +33,13 @@ import (
 // log is for logging in this package.
 var prometheuslog = logf.Log.WithName("prometheus-resource")
 
+var webhookClient client.Client
+
 func (r *Prometheus) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	if webhookClient == nil {
+		webhookClient = mgr.GetClient()
+	}
+
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -41,8 +54,6 @@ var _ webhook.Defaulter = &Prometheus{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Prometheus) Default() {
 	prometheuslog.Info("default", "name", r.Name)
-
-	// TODO(user): fill in your defaulting logic.
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
@@ -53,23 +64,44 @@ var _ webhook.Validator = &Prometheus{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Prometheus) ValidateCreate() error {
 	prometheuslog.Info("validate create", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object creation.
-	return nil
+	return ValidatePrometheus(r.Spec)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *Prometheus) ValidateUpdate(old runtime.Object) error {
 	prometheuslog.Info("validate update", "name", r.Name)
-
-	// TODO(user): fill in your validation logic upon object update.
-	return nil
+	return ValidatePrometheus(r.Spec)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *Prometheus) ValidateDelete() error {
-	prometheuslog.Info("validate delete", "name", r.Name)
+	return nil
+}
 
-	// TODO(user): fill in your validation logic upon object deletion.
+func ValidatePrometheus(p PrometheusSpec) error {
+	if (p.Service == ServiceReference{}) {
+		return fmt.Errorf("service reference is required")
+	}
+
+	svc := &corev1.Service{}
+	if err := webhookClient.Get(context.Background(), p.Service.GetNamespacedName(), svc); err != nil {
+		if errors.IsNotFound(err) {
+			return fmt.Errorf("prometheus service '%s' is not found in namespace '%s'", p.Service.Name, p.Service.Namespace)
+		}
+		return err
+	}
+
+	if p.Auth != nil {
+		secretRef := p.Auth.SecretReference
+		secret := &corev1.Secret{}
+		secretName := types.NamespacedName{Namespace: secretRef.Namespace, Name: secretRef.Name}
+		if err := webhookClient.Get(context.Background(), secretName, secret); err != nil {
+			if errors.IsNotFound(err) {
+				return fmt.Errorf("secret '%s' is not found in namespace '%s'", secretRef.Name, secretRef.Namespace)
+			}
+			return err
+		}
+	}
+
 	return nil
 }

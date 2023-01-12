@@ -34,10 +34,6 @@ func (r *CounterMeasure) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		webhookClient = mgr.GetClient()
 	}
 
-	if webhookClient == nil {
-		webhookClient = mgr.GetClient()
-	}
-
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()

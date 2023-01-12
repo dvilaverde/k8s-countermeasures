@@ -1,13 +1,9 @@
 package v1alpha1
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	util "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -18,7 +14,7 @@ func ValidateSpec(spec *CounterMeasureSpec) error {
 
 	validationErrors := make([]error, 0)
 
-	if err := ValidatePrometheus(spec.Prometheus); err != nil {
+	if err := ValidateOnEvent(spec.OnEvent); err != nil {
 		validationErrors = append(validationErrors, err)
 	}
 
@@ -72,38 +68,10 @@ func ValidateAction(a Action) error {
 	return util.NewAggregate(actionErrors)
 }
 
-func ValidatePrometheus(p *PrometheusSpec) error {
-	if p == nil {
-		return fmt.Errorf("prometheus event source is required")
-	}
-
-	// check the service exists if we have a prometheus spec
-	if p.Service == nil {
-		return fmt.Errorf("prometheus service spec is required")
-	}
-
-	svc := &corev1.Service{}
-	if err := webhookClient.Get(context.Background(), p.Service.GetNamespacedName(), svc); err != nil {
-		if errors.IsNotFound(err) {
-			return fmt.Errorf("service '%s' is not found in namespace '%s'", p.Service.Name, p.Service.Namespace)
-		}
-		return err
-	}
-
-	if p.Auth != nil {
-		secretRef := p.Auth.SecretReference
-		secret := &corev1.Secret{}
-		secretName := types.NamespacedName{Namespace: secretRef.Namespace, Name: secretRef.Name}
-		if err := webhookClient.Get(context.Background(), secretName, secret); err != nil {
-			if errors.IsNotFound(err) {
-				return fmt.Errorf("secret '%s' is not found in namespace '%s'", secretRef.Name, secretRef.Namespace)
-			}
-			return err
-		}
-	}
-
-	if p.Alert == nil {
-		return fmt.Errorf("prometheus alert spec is required")
+func ValidateOnEvent(e OnEventSpec) error {
+	// check the event name is present with a valid value
+	if len(e.EventName) == 0 {
+		return fmt.Errorf("event name is required")
 	}
 
 	return nil

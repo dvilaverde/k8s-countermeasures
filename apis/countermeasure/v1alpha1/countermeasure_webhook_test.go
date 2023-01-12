@@ -84,14 +84,10 @@ var _ = Describe("CounterMeasures webhook", func() {
 					Namespace: CounterMeasureNamespace,
 				},
 				Spec: CounterMeasureSpec{
-					Prometheus: &PrometheusSpec{
-						Service: &ServiceReference{
-							Name:      "prom-operated",
-							Namespace: "default",
-						},
-						Alert: &PrometheusAlertSpec{
-							AlertName:      "CPUThrottlingHigh",
-							IncludePending: true,
+					OnEvent: OnEventSpec{
+						EventName: "CPUThrottlingHigh",
+						SourceSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{"env": "dev"},
 						},
 					},
 					Actions: []Action{
@@ -142,12 +138,11 @@ var _ = Describe("CounterMeasures webhook", func() {
 					Namespace: CounterMeasureNamespace,
 				},
 				Spec: CounterMeasureSpec{
-					Prometheus: &PrometheusSpec{
-						Service: &ServiceReference{
-							Name:      "prom-operated",
-							Namespace: "default",
+					OnEvent: OnEventSpec{
+						EventName: "CPUThrottlingHigh",
+						SourceSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{"env": "dev"},
 						},
-						Alert: &PrometheusAlertSpec{},
 					},
 					Actions: []Action{
 						{
@@ -215,18 +210,11 @@ var _ = Describe("CounterMeasures webhook", func() {
 					Namespace: CounterMeasureNamespace,
 				},
 				Spec: CounterMeasureSpec{
-					Prometheus: &PrometheusSpec{
-						Service: &ServiceReference{
-							Name:      "prom-operated",
-							Namespace: "default",
+					OnEvent: OnEventSpec{
+						EventName: "CPUThrottlingHigh",
+						SourceSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{"env": "dev"},
 						},
-						Auth: &AuthSpec{
-							SecretReference: corev1.SecretReference{
-								Name:      "secret",
-								Namespace: "ns",
-							},
-						},
-						Alert: &PrometheusAlertSpec{},
 					},
 					Actions: []Action{
 						{
@@ -254,18 +242,11 @@ var _ = Describe("CounterMeasures webhook", func() {
 					Namespace: CounterMeasureNamespace,
 				},
 				Spec: CounterMeasureSpec{
-					Prometheus: &PrometheusSpec{
-						Service: &ServiceReference{
-							Name:      "prom-operated",
-							Namespace: "wrong-namespace",
+					OnEvent: OnEventSpec{
+						EventName: "CPUThrottlingHigh",
+						SourceSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{"env": "dev"},
 						},
-						Auth: &AuthSpec{
-							SecretReference: corev1.SecretReference{
-								Name:      "secret",
-								Namespace: "ns",
-							},
-						},
-						Alert: &PrometheusAlertSpec{},
 					},
 					Actions: []Action{
 						{

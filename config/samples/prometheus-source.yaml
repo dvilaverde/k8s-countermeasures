@@ -3,11 +3,8 @@ kind: Prometheus
 metadata:
   name: p8s-source
   labels:
-    app.kubernetes.io/name: countermeasure
-    app.kubernetes.io/instance: countermeasure-sample
-    app.kubernetes.io/part-of: k8s-countermeasures
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: k8s-countermeasures
+    app.kubernetes.io/name: p8s-source
+    app.kubernetes.io/instance: dev
 spec:
   serviceRef:
     name: prometheus-operated

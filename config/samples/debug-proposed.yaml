@@ -11,9 +11,9 @@ metadata:
 spec:
   onEvent:
     named: HTTP_404
-    fromSource:
-      name: prometheus
-      namespace: ns-custom
+    sourceSelector:
+      app.kubernetes.io/name: countermeasure
+      app.kubernetes.io/instance: dev
   actions:
   - name: debug-pod
     debug:

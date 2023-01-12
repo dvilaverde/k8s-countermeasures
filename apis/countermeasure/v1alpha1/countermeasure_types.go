@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,26 +32,6 @@ const (
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-type ServiceReference struct {
-	// `namespace` is the namespace of the service.
-	Namespace string `json:"namespace"`
-	// `name` is the name of the service.
-	Name string `json:"name"`
-	// `path` is an optional URL path which will be sent in any request to
-	// this service.
-	// +optional
-	Path *string `json:"path,omitempty"`
-	// `port` should be a valid port number (1-65535, inclusive).
-	// +optional
-	Port int32 `json:"port,omitempty"`
-	// `targetPort` should be a valid name of a port in the target service.
-	// +optional
-	TargetPort string `json:"targetPort,omitempty"`
-	// `useTls` true if the HTTPS endpoint should be used.
-	// +optional
-	UseTls bool `json:"useTls,omitempty"`
-}
 
 type ObjectReference struct {
 	// `namespace` is the namespace of the object.
@@ -81,30 +60,6 @@ type DeploymentReference struct {
 	Name string `json:"name"`
 }
 
-// GetNamespacedName get the NamespacedName of the Service
-func (s *ServiceReference) GetNamespacedName() types.NamespacedName {
-	return types.NamespacedName{
-		Namespace: s.Namespace,
-		Name:      s.Name,
-	}
-}
-
-// AuthSpec Spec for references to secrets
-type AuthSpec struct {
-	SecretReference corev1.SecretReference `json:"secretRef"`
-}
-
-// PrometheusSpec definition of a monitor for a prometheus service in the K8s cluster
-type PrometheusSpec struct {
-	Service *ServiceReference `json:"service"`
-	// Defines a Kubernetes secret with a type indicating the authentication scheme
-	// for example the type: 'kubernetes.io/basic-auth' indicates basic auth credentials
-	// to prometheus.
-	Auth *AuthSpec `json:"auth,omitempty"`
-
-	Alert *PrometheusAlertSpec `json:"alert"`
-}
-
 // SuppressionPolicySpec Defines a policy to apply to alerts to suppress duplicates
 type SuppressionPolicySpec struct {
 	// Defines the duration of the suppression.
@@ -112,10 +67,10 @@ type SuppressionPolicySpec struct {
 }
 
 // PrometheusAlertSpec definition of a monitored prometheus alert
-type PrometheusAlertSpec struct {
-	AlertName string `json:"name"`
-	// If true will run the actions for any pending alerts.
-	IncludePending bool `json:"includePending,omitempty"`
+type OnEventSpec struct {
+	EventName      string               `json:"name"`
+	SourceSelector metav1.LabelSelector `json:"sourceSelector"`
+
 	// Defines a policy for how to suppress alerts from triggering actions.
 	SuppressionPolicy *SuppressionPolicySpec `json:"suppressionPolicy,omitempty"`
 }
@@ -180,8 +135,8 @@ type CounterMeasureSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Prometheus *PrometheusSpec `json:"prometheus,omitempty"`
-	Actions    []Action        `json:"actions"`
+	OnEvent OnEventSpec `json:"onEvent"`
+	Actions []Action    `json:"actions"`
 	// +kubebuilder:default=false
 	DryRun bool `json:"dryRun,omitempty"`
 }

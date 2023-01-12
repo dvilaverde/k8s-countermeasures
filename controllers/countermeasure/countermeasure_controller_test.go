@@ -61,14 +61,10 @@ var _ = Describe("CounterMeasures controller", func() {
 					Namespace: CounterMeasureNamespace,
 				},
 				Spec: cmv1alpha1.CounterMeasureSpec{
-					Prometheus: &cmv1alpha1.PrometheusSpec{
-						Service: &cmv1alpha1.ServiceReference{
-							Name:      "prom-operated",
-							Namespace: "monitoring",
-						},
-						Alert: &cmv1alpha1.PrometheusAlertSpec{
-							AlertName:      "CPUThrottlingHigh",
-							IncludePending: true,
+					OnEvent: cmv1alpha1.OnEventSpec{
+						EventName: "CPUThrottlingHigh",
+						SourceSelector: metav1.LabelSelector{
+							MatchLabels: map[string]string{"env": "dev"},
 						},
 					},
 					Actions: []cmv1alpha1.Action{
