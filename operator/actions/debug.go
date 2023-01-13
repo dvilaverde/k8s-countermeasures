@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
+	"github.com/dvilaverde/k8s-countermeasures/operator/events"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	rand "k8s.io/apimachinery/pkg/util/rand"

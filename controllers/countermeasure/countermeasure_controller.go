@@ -18,16 +18,22 @@ package countermeasure
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/actions"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	util "github.com/dvilaverde/k8s-countermeasures/operator"
+	"github.com/dvilaverde/k8s-countermeasures/operator/actions"
+	"github.com/dvilaverde/k8s-countermeasures/operator/reconciler"
+	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
+	"k8s.io/apimachinery/pkg/api/meta"
 )
 
 type counterMeasureHandle struct {
@@ -37,7 +43,7 @@ type counterMeasureHandle struct {
 
 // CounterMeasureReconciler reconciles a CounterMeasure object
 type CounterMeasureReconciler struct {
-	ReconcilerBase
+	reconciler.ReconcilerBase
 	EventSources   []sources.Source
 	actionRegistry actions.Registry
 	monitored      map[string]counterMeasureHandle
@@ -70,7 +76,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	logger := log.FromContext(ctx)
 
 	counterMeasureCR := &v1alpha1.CounterMeasure{}
-	err := r.client.Get(ctx, req.NamespacedName, counterMeasureCR)
+	err := r.GetClient().Get(ctx, req.NamespacedName, counterMeasureCR)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// stop reconciliation since the Operator Custom Resource was not found
@@ -131,7 +137,7 @@ func (r *CounterMeasureReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *CounterMeasureReconciler) isAlreadyMonitored(cm *v1alpha1.CounterMeasure) bool {
 
-	nsName := ToNamespaceName(&cm.ObjectMeta)
+	nsName := util.ToNamespaceName(&cm.ObjectMeta)
 	// if the generation hasn't changed from what we're monitoring then short return
 	if handle, ok := r.monitored[nsName.String()]; ok {
 		if handle.generation == cm.Generation {
@@ -145,7 +151,7 @@ func (r *CounterMeasureReconciler) isAlreadyMonitored(cm *v1alpha1.CounterMeasur
 // StartMonitoring will start monitoring a resource for events that require action
 func (r *CounterMeasureReconciler) startMonitoring(countermeasure *v1alpha1.CounterMeasure) error {
 	found := false
-	nsName := ToNamespaceName(&countermeasure.ObjectMeta)
+	nsName := util.ToNamespaceName(&countermeasure.ObjectMeta)
 
 	for _, source := range r.EventSources {
 		if source.Supports(&countermeasure.Spec) {
@@ -188,4 +194,136 @@ func (r *CounterMeasureReconciler) stopMonitoring(key types.NamespacedName) erro
 	}
 
 	return nil
+}
+
+func (r *CounterMeasureReconciler) HandleSuccess(ctx context.Context, cm *v1alpha1.CounterMeasure) (ctrl.Result, error) {
+
+	logger := log.FromContext(ctx)
+
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Let's re-fetch the countermeasure Custom Resource after update the status
+		// so that we have the latest state of the resource on the cluster, and we will avoid
+		// raise the issue "the object has been modified, please apply
+		// your changes to the latest version and try again" which would re-trigger the reconciliation
+		// if we try to update it again in the following operations
+		ns := types.NamespacedName{Namespace: cm.ObjectMeta.Namespace, Name: cm.ObjectMeta.Name}
+		if err := r.GetClient().Get(ctx, ns, cm); err != nil {
+			logger.Error(err, "failed to reload countermeasure")
+			return err
+		}
+
+		meta.SetStatusCondition(&cm.Status.Conditions, metav1.Condition{
+			Type:               v1alpha1.TypeMonitoring,
+			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: cm.Generation,
+			Status:             metav1.ConditionTrue,
+			Reason:             v1alpha1.ReasonSucceeded,
+		})
+
+		cm.Status.LastStatus = v1alpha1.Monitoring
+		cm.Status.LastStatusChangeTime = &metav1.Time{Time: time.Now()}
+
+		return r.GetClient().Status().Update(ctx, cm)
+	})
+
+	if err != nil {
+		if errors.IsConflict(err) {
+			logger.Info("409 conflict - failed to update countermeasure status, reconcile re-queued.")
+		} else {
+			logger.Error(err, "failed to update countermeasure status")
+		}
+	}
+
+	return ctrl.Result{}, err
+}
+
+func (r *CounterMeasureReconciler) HandleError(ctx context.Context, cm *v1alpha1.CounterMeasure, err error) (ctrl.Result, error) {
+	return r.HandleErrorAndRequeue(ctx, cm, err, 0)
+}
+
+func (r *CounterMeasureReconciler) HandleErrorAndRequeue(ctx context.Context, cm *v1alpha1.CounterMeasure, err error, requeueAfter time.Duration) (ctrl.Result, error) {
+
+	r.GetRecorder().Event(cm, "Warning", "ProcessingError", err.Error())
+
+	logger := log.FromContext(ctx)
+	retryErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// Let's re-fetch the countermeasure Custom Resource after update the status
+		// so that we have the latest state of the resource on the cluster, and we will avoid
+		// raise the issue "the object has been modified, please apply
+		// your changes to the latest version and try again" which would re-trigger the reconciliation
+		// if we try to update it again in the following operations
+		ns := types.NamespacedName{Namespace: cm.ObjectMeta.Namespace, Name: cm.ObjectMeta.Name}
+		if err := r.GetClient().Get(ctx, ns, cm); err != nil {
+			logger.Error(err, "failed to reload countermeasure")
+			return err
+		}
+
+		meta.SetStatusCondition(&cm.Status.Conditions, metav1.Condition{
+			Type:               v1alpha1.TypeMonitoring,
+			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: cm.Generation,
+			Status:             metav1.ConditionTrue,
+			Reason:             v1alpha1.ReasonSucceeded,
+			Message:            err.Error(),
+		})
+
+		cm.Status.LastStatus = v1alpha1.Error
+		cm.Status.LastStatusChangeTime = &metav1.Time{Time: time.Now()}
+		return r.GetClient().Status().Update(ctx, cm)
+	})
+
+	if retryErr != nil {
+		logger.Error(retryErr, "failed to update countermeasure status")
+		return ctrl.Result{}, retryErr
+	}
+
+	return ctrl.Result{RequeueAfter: requeueAfter}, nil
+}
+
+func (r *CounterMeasureReconciler) HandleOutcome(ctx context.Context, cm *v1alpha1.CounterMeasure, err error) (ctrl.Result, error) {
+	if err != nil {
+		return r.HandleError(ctx, cm, err)
+	}
+
+	return r.HandleSuccess(ctx, cm)
+}
+
+// MarkInitializing mark this countermeasure with the transient initializing state
+func (r *CounterMeasureReconciler) MarkInitializing(ctx context.Context, cm *v1alpha1.CounterMeasure) error {
+	logger := log.FromContext(ctx)
+	var err error
+
+	if cm.Status.Conditions == nil || len(cm.Status.Conditions) == 0 {
+
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// Let's re-fetch the countermeasure Custom Resource after update the status
+			// so that we have the latest state of the resource on the cluster, and we will avoid
+			// raise the issue "the object has been modified, please apply
+			// your changes to the latest version and try again" which would re-trigger the reconciliation
+			// if we try to update it again in the following operations
+			ns := types.NamespacedName{Namespace: cm.ObjectMeta.Namespace, Name: cm.ObjectMeta.Name}
+			if err := r.GetClient().Get(ctx, ns, cm); err != nil {
+				logger.Error(err, "failed to reload countermeasure")
+				return err
+			}
+
+			meta.SetStatusCondition(&cm.Status.Conditions, metav1.Condition{
+				Type:               v1alpha1.TypeMonitoring,
+				Status:             metav1.ConditionUnknown,
+				ObservedGeneration: cm.Generation,
+				Reason:             v1alpha1.ReasonReconciling,
+				Message:            "Initializing",
+			})
+
+			cm.Status.LastStatus = v1alpha1.Unknown
+			cm.Status.LastStatusChangeTime = &metav1.Time{Time: time.Now()}
+			return r.GetClient().Status().Update(ctx, cm)
+		})
+
+		if err != nil {
+			logger.Error(err, "failed to update countermeasure status")
+		}
+	}
+
+	return err
 }

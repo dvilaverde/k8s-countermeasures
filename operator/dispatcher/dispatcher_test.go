@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
+	"github.com/dvilaverde/k8s-countermeasures/operator/events"
 	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 )

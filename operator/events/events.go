@@ -8,11 +8,18 @@ import (
 	"time"
 )
 
+type SourceName struct {
+	Name      string
+	Namespace string
+}
+
 type EventData map[string]string
+
 type Event struct {
 	Name       string
 	ActiveTime time.Time
 	Data       *EventData
+	Source     SourceName
 }
 
 // Key hash the EventData into a key that can be used to de-duplicate events.

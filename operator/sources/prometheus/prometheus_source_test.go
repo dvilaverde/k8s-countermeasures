@@ -8,8 +8,8 @@ import (
 	"time"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/operator/events"
+	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,7 +47,7 @@ func Test_callbackSuppressExpired(t *testing.T) {
 	cb := callback{
 		name:             types.NamespacedName{Namespace: "ns", Name: "name"},
 		suppressedAlerts: make(map[string]time.Time),
-		alertSpec: &v1alpha1.PrometheusAlertSpec{
+		alertSpec: &v1alpha1.OnEventSpec{
 			SuppressionPolicy: &v1alpha1.SuppressionPolicySpec{
 				Duration: &metav1.Duration{
 					Duration: 15 * time.Second,
@@ -108,15 +108,8 @@ func Test_Notify(t *testing.T) {
 		TypeMeta:   metav1.TypeMeta{Kind: "CounterMeasure", APIVersion: "countermeasure.vilaverde.rocks/v1alpha1"},
 		ObjectMeta: metav1.ObjectMeta{Name: "cm1", Namespace: "ns1"},
 		Spec: v1alpha1.CounterMeasureSpec{
-			Prometheus: &v1alpha1.PrometheusSpec{
-				Service: &v1alpha1.ServiceReference{
-					Namespace: "ns-mon",
-					Name:      "prom-svc",
-				},
-				Alert: &v1alpha1.PrometheusAlertSpec{
-					AlertName:      "custom-alert",
-					IncludePending: false,
-				},
+			OnEvent: v1alpha1.OnEventSpec{
+				EventName: "custom-alert",
 			},
 		},
 	}

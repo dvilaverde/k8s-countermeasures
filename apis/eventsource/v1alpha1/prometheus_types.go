@@ -71,8 +71,17 @@ type PrometheusStatus struct {
 type StateType string
 
 const (
-	Monitoring StateType = "Polling"
-	Unknown    StateType = "Unknown"
+	Polling StateType = "Polling"
+	Error   StateType = "Error"
+	Unknown StateType = "Unknown"
+)
+
+const (
+	ReasonSucceeded            = "Succeeded"
+	ReasonReconciling          = "Reconciling"
+	ReasonResourceNotAvailable = "ResourceNotAvailable"
+
+	TypePolling = "Polling"
 )
 
 // +kubebuilder:object:root=true

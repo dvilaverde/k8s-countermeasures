@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
+	"github.com/dvilaverde/k8s-countermeasures/operator/events"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"

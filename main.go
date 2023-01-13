@@ -38,9 +38,10 @@ import (
 	countermeasurev1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	eventsourcev1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	countermeasure "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources/prometheus"
-	eventsourcecontrollers "github.com/dvilaverde/k8s-countermeasures/controllers/eventsource"
+	eventsource "github.com/dvilaverde/k8s-countermeasures/controllers/eventsource"
+	"github.com/dvilaverde/k8s-countermeasures/operator/reconciler"
+	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
+	"github.com/dvilaverde/k8s-countermeasures/operator/sources/prometheus"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -138,19 +139,18 @@ func main() {
 	sources[0] = source
 	mgr.Add(source)
 
-	reconciler := &countermeasure.CounterMeasureReconciler{
-		ReconcilerBase: countermeasure.NewFromManager(mgr, mgr.GetEventRecorderFor("countermeasure_controller")),
+	cmr := &countermeasure.CounterMeasureReconciler{
+		ReconcilerBase: reconciler.NewFromManager(mgr, mgr.GetEventRecorderFor("countermeasure_controller")),
 		EventSources:   sources,
 		Log:            ctrl.Log.WithName("controllers").WithName("countermeasure"),
 	}
-	if err = (reconciler).SetupWithManager(mgr); err != nil {
+	if err = (cmr).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create countermeasure controller")
 		os.Exit(1)
 	}
 
-	if err = (&eventsourcecontrollers.PrometheusReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+	if err = (&eventsource.PrometheusReconciler{
+		ReconcilerBase: reconciler.NewFromManager(mgr, mgr.GetEventRecorderFor("prometheus_controller")),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Prometheus")
 		os.Exit(1)

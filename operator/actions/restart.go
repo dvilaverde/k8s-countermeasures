@@ -9,7 +9,7 @@ import (
 
 	"github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/assets"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
+	"github.com/dvilaverde/k8s-countermeasures/operator/events"
 )
 
 type Restart struct {

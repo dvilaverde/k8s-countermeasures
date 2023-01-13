@@ -11,10 +11,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
-	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	cm "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/events"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
+	"github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
+	esV1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
+	util "github.com/dvilaverde/k8s-countermeasures/operator"
+	"github.com/dvilaverde/k8s-countermeasures/operator/events"
+	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -22,7 +23,7 @@ import (
 
 type callback struct {
 	name             types.NamespacedName
-	alertSpec        *v1alpha1.PrometheusAlertSpec
+	alertSpec        *v1alpha1.OnEventSpec
 	handler          sources.Handler
 	suppressedAlerts map[string]time.Time
 }
@@ -73,14 +74,16 @@ func (d *EventSource) InjectClient(client client.Client) error {
 	return nil
 }
 
-func (d *EventSource) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler sources.Handler) (sources.CancelFunc, error) {
-	promConfig := countermeasure.Spec.Prometheus
+func (d *EventSource) NotifyOn(p8sResource esV1.Prometheus, handler sources.Handler) (sources.CancelFunc, error) {
+	promConfig := p8sResource.Spec
 
-	p8SvcKey := cm.ServiceToKey(promConfig.Service)
+	p8SvcKey := util.ServiceToKey(promConfig.Service)
 
 	d.callbackMux.Lock()
 	defer d.callbackMux.Unlock()
 
+	// TODO fix this
+	countermeasure := v1alpha1.CounterMeasure{}
 	newCallback := &callback{
 		name:             types.NamespacedName{Name: countermeasure.Name, Namespace: countermeasure.Namespace},
 		alertSpec:        countermeasure.Spec.Prometheus.Alert.DeepCopy(),
@@ -107,7 +110,7 @@ func (d *EventSource) NotifyOn(countermeasure v1alpha1.CounterMeasure, handler s
 		d.p8Services[p8SvcKey] = client
 	}
 
-	nsName := cm.ToNamespaceName(&countermeasure.ObjectMeta)
+	nsName := util.ToNamespaceName(&countermeasure.ObjectMeta)
 	return d.cancelFunction(nsName), nil
 }
 
