@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	util "github.com/dvilaverde/k8s-countermeasures/operator"
 	"github.com/dvilaverde/k8s-countermeasures/operator/actions"
 	"github.com/dvilaverde/k8s-countermeasures/operator/reconciler"
 	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
@@ -44,9 +43,8 @@ type counterMeasureHandle struct {
 // CounterMeasureReconciler reconciles a CounterMeasure object
 type CounterMeasureReconciler struct {
 	reconciler.ReconcilerBase
-	EventSources   []sources.Source
+	EventManager   sources.EventManager
 	actionRegistry actions.Registry
-	monitored      map[string]counterMeasureHandle
 	Log            logr.Logger
 }
 
@@ -82,7 +80,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			// stop reconciliation since the Operator Custom Resource was not found
 			logger.Info("CounterMeasure resource not found", "name", req.Name, "namespace", req.Namespace)
 			// Notify the monitoring service to stop monitoring the NamespaceName
-			r.stopMonitoring(req.NamespacedName)
+			r.EventManager.RemoveCounterMeasure(req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
 
@@ -91,7 +89,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	if r.isAlreadyMonitored(counterMeasureCR) {
+	if r.EventManager.CounterMeasureExists(counterMeasureCR.ObjectMeta) {
 		return r.HandleSuccess(ctx, counterMeasureCR)
 	}
 
@@ -111,7 +109,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return r.HandleError(ctx, counterMeasureCR, err)
 	}
 
-	err = r.startMonitoring(counterMeasureCR)
+	err = r.EventManager.AddCounterMeasure(counterMeasureCR)
 	if err != nil {
 		return r.HandleError(ctx, counterMeasureCR, err)
 	}
@@ -126,74 +124,12 @@ func (r *CounterMeasureReconciler) isValid(ctx context.Context, cm *v1alpha1.Cou
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CounterMeasureReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.monitored = make(map[string]counterMeasureHandle)
 	r.actionRegistry = actions.Registry{}
 	r.actionRegistry.Initialize()
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.CounterMeasure{}).
 		Complete(r)
-}
-
-func (r *CounterMeasureReconciler) isAlreadyMonitored(cm *v1alpha1.CounterMeasure) bool {
-
-	nsName := util.ToNamespaceName(&cm.ObjectMeta)
-	// if the generation hasn't changed from what we're monitoring then short return
-	if handle, ok := r.monitored[nsName.String()]; ok {
-		if handle.generation == cm.Generation {
-			return true
-		}
-	}
-
-	return false
-}
-
-// StartMonitoring will start monitoring a resource for events that require action
-func (r *CounterMeasureReconciler) startMonitoring(countermeasure *v1alpha1.CounterMeasure) error {
-	found := false
-	nsName := util.ToNamespaceName(&countermeasure.ObjectMeta)
-
-	for _, source := range r.EventSources {
-		if source.Supports(&countermeasure.Spec) {
-
-			handler, err := r.actionRegistry.ConvertToHandler(countermeasure, r)
-			if err != nil {
-				return err
-			}
-
-			cancel, err := source.NotifyOn(*countermeasure, handler)
-			if err != nil {
-				return err
-			}
-
-			found = true
-			r.monitored[nsName.String()] = counterMeasureHandle{
-				cancelFunc: cancel,
-				generation: countermeasure.Generation,
-			}
-
-			break
-		}
-	}
-
-	if !found {
-		r.Log.Error(nil, "could not find a supported countermeasure event source")
-	}
-
-	return nil
-}
-
-func (r *CounterMeasureReconciler) stopMonitoring(key types.NamespacedName) error {
-
-	if handle, ok := r.monitored[key.String()]; ok {
-		handle.cancelFunc()
-		// delete the key from this monitored map
-		delete(r.monitored, key.String())
-
-		r.Log.Info("stopped monitoring countermeasure", "name", key.Name, "namespace", key.Namespace)
-	}
-
-	return nil
 }
 
 func (r *CounterMeasureReconciler) HandleSuccess(ctx context.Context, cm *v1alpha1.CounterMeasure) (ctrl.Result, error) {

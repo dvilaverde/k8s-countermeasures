@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -41,7 +40,6 @@ import (
 	eventsource "github.com/dvilaverde/k8s-countermeasures/controllers/eventsource"
 	"github.com/dvilaverde/k8s-countermeasures/operator/reconciler"
 	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
-	"github.com/dvilaverde/k8s-countermeasures/operator/sources/prometheus"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -132,16 +130,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	sources := make([]sources.Source, 1)
-
-	// add all the supported event sources
-	source := prometheus.NewEventSource(prometheus.NewPrometheusClient, 15*time.Second) // TODO: make configurable
-	sources[0] = source
-	mgr.Add(source)
-
+	eventManager := &sources.Manager{}
+	mgr.Add(eventManager)
 	cmr := &countermeasure.CounterMeasureReconciler{
 		ReconcilerBase: reconciler.NewFromManager(mgr, mgr.GetEventRecorderFor("countermeasure_controller")),
-		EventSources:   sources,
+		EventManager:   eventManager,
 		Log:            ctrl.Log.WithName("controllers").WithName("countermeasure"),
 	}
 	if err = (cmr).SetupWithManager(mgr); err != nil {

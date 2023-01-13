@@ -2,75 +2,54 @@ package sources
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	esv1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/operator/events"
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-type Handler interface {
-	OnDetection(types.NamespacedName, []events.Event, chan<- string)
-}
-
-type HandlerFunc func(types.NamespacedName, []events.Event, chan<- string)
-
-func (handler HandlerFunc) OnDetection(name types.NamespacedName, event []events.Event, done chan<- string) {
-	handler(name, event, done)
-}
-
-type CancelFunc func()
-
-type Source interface {
-	NotifyOn(countermeasure v1alpha1.CounterMeasure, callback Handler) (CancelFunc, error)
-
-	Supports(countermeasure *v1alpha1.CounterMeasureSpec) bool
-}
-
-// NEW CODE
-
-type EventManager interface {
-	Remove(types.NamespacedName) error
-
-	// Exists Must check for the correct Generation vs existing, if the Generations don't match then will return false.
-	Exists(*esv1alpha1.Prometheus) (bool, error)
-
-	Add(*esv1alpha1.Prometheus) error
-}
-
-type monitoredResource struct {
-	cancel     CancelFunc
-	generation int64
-}
 
 type EventPublisher interface {
 	Publish(events.Event) error
 }
 type EventPublisherFunc func(events.Event) error
 
-type EventProvider interface {
+func (pub EventPublisherFunc) Publish(event events.Event) error {
+	return pub(event)
 }
 
-type NamedSourceEventPublisher struct {
-	SourceName        types.NamespacedName
-	DelegatePublisher EventPublisher
+type ObjectKey struct {
+	types.NamespacedName
+	Generation int64
+}
+type ActiveEventSources map[ObjectKey]EventSource
+type ActiveCounterMeasures map[ObjectKey]struct{}
+
+type EventManager interface {
+	RemoveSource(types.NamespacedName) error
+
+	// Exists Must check for the correct Generation vs existing, if
+	// the Generations don't match then will return false.
+	SourceExists(metav1.ObjectMeta) bool
+
+	AddSource(EventSource) error
+
+	AddCounterMeasure(*v1alpha1.CounterMeasure) error
+	RemoveCounterMeasure(types.NamespacedName) error
+	CounterMeasureExists(metav1.ObjectMeta) bool
 }
 
-func (ep *NamedSourceEventPublisher) Publish(event events.Event) error {
-	if (event.Source == events.SourceName{}) {
-		// when there is an empty source lets populate it before propagating the event.
-		event.Source = events.SourceName{
-			Name:      ep.SourceName.Name,
-			Namespace: ep.SourceName.Namespace,
-		}
-	}
-
-	return ep.DelegatePublisher.Publish(event)
+type EventSource interface {
+	Key() ObjectKey
+	Start() error
+	Subscribe(EventPublisher) error
+	Stop() error
 }
+
+var _ EventManager = &Manager{}
 
 type Manager struct {
 	logger logr.Logger
@@ -78,97 +57,116 @@ type Manager struct {
 
 	publisher EventPublisher
 
-	// a map of the actively monitored custom resources to a cancellation function
-	activelyMonitored map[types.NamespacedName]monitoredResource
+	sourcesMux sync.Mutex
+	sources    ActiveEventSources
 
-	providerMux sync.Mutex
-	providers   []EventProvider
+	measuresMux sync.Mutex
+	measures    ActiveCounterMeasures
 }
 
-// Register will add an event provider to the event manager, the event provider will
-// provide events to the dispatcher for taking action on.
-func (m *EventManager) Register(provider EventProvider) error {
-	m.providerMux.Lock()
-	defer m.providerMux.Unlock()
+func (m *Manager) RemoveSource(name types.NamespacedName) error {
+	m.sourcesMux.Lock()
+	defer m.sourcesMux.Unlock()
 
-	m.providers = append(m.providers, provider)
+	for k := range m.sources {
+		if k.NamespacedName == name {
+			delete(m.sources, k)
+		}
+	}
+
 	return nil
 }
 
-// Start satisfies the runnable interface and started by the Operator SDK manager.
-func (m *EventManager) Start(ctx context.Context) error {
+func (m *Manager) SourceExists(objectMeta metav1.ObjectMeta) bool {
+	key := ObjectKey{
+		NamespacedName: types.NamespacedName{Namespace: objectMeta.Namespace, Name: objectMeta.Name},
+		Generation:     objectMeta.Generation,
+	}
 
-	m.logger.Info("starting event source manager")
-	m.activelyMonitored = make(map[types.NamespacedName]monitoredResource)
-
-	<-ctx.Done()
-	return nil
-}
-
-func (m *EventManager) IsMonitoring(name types.NamespacedName) bool {
-
-	// if the generation hasn't changed from what we're monitoring then short return
-	_, ok := m.activelyMonitored[name]
+	m.sourcesMux.Lock()
+	defer m.sourcesMux.Unlock()
+	_, ok := m.sources[key]
 	return ok
 }
 
-func (m *EventManager) BeginMonitoring(name types.NamespacedName) error {
-	// get the client and check if the current resource matches what is being
-	// currently monitored.
-	resource := &v1alpha1.CounterMeasure{}
-	err := m.client.Get(context.Background(), name, resource)
-	if err != nil {
-		return err
-	}
+func (m *Manager) AddSource(es EventSource) error {
+	m.sourcesMux.Lock()
+	defer m.sourcesMux.Unlock()
 
-	if monitorHandle, ok := m.activelyMonitored[name]; ok {
-		// check the generation and if different then cancel the monitor to cleanup
-		// resources on updates
-		if monitorHandle.generation != resource.Generation {
-			monitorHandle.cancel()
+	key := es.Key()
+	m.sources[key] = es
+
+	es.Subscribe(EventPublisherFunc(func(event events.Event) error {
+		if (event.Source == events.SourceName{}) {
+
+			// when there is an empty source lets populate it before propagating the event.
+			event.Source = events.SourceName{
+				Name:      key.Name,
+				Namespace: key.Namespace,
+			}
 		}
+		return m.publisher.Publish(event)
+	}))
+	es.Start()
 
-		// now we're clear to start monitoring the updated version of the CounterMeasure
-	}
+	return nil
+}
 
-	// TODO: create a function that can be used to cancel everything, although maybe not needed
-	//       if using a new CR:
-	//
-	//       apiVersion: operator.vilaverde.rocks
-	//		 Kind: EventSource
-	//
-	m.activelyMonitored[name] = monitoredResource{
-		cancel:     nil,
-		generation: resource.Generation,
+// AddCounterMeasure install a countermeasure to route events to
+func (m *Manager) AddCounterMeasure(cm *v1alpha1.CounterMeasure) error {
+	return nil
+}
+
+// RemoveCounterMeasure uninstall a countermeasure from the event subscription
+func (m *Manager) RemoveCounterMeasure(name types.NamespacedName) error {
+	m.measuresMux.Lock()
+	defer m.measuresMux.Unlock()
+
+	for k := range m.measures {
+		if k.NamespacedName == name {
+			delete(m.measures, k)
+		}
 	}
 
 	return nil
 }
 
-func (m *EventManager) EndMonitoring(name types.NamespacedName) error {
-	if monitorHandle, ok := m.activelyMonitored[name]; ok {
-		monitorHandle.cancel()
-		// delete the key from the list of actively monitored CRs
-		delete(m.activelyMonitored, name)
-
-		m.logger.Info("stopped monitoring countermeasure", "name", name.Name, "namespace", name.Namespace)
-	} else {
-		return fmt.Errorf("trying to stop monitoring of '%s/%s' but it is not actively monitored",
-			name.Namespace,
-			name.Name)
+// CounterMeasureExists uninstall a countermeasure from the event subscription
+func (m *Manager) CounterMeasureExists(objectName metav1.ObjectMeta) bool {
+	key := ObjectKey{
+		NamespacedName: types.NamespacedName{Namespace: objectName.Namespace, Name: objectName.Name},
+		Generation:     objectName.Generation,
 	}
 
+	m.measuresMux.Lock()
+	defer m.measuresMux.Unlock()
+
+	_, ok := m.measures[key]
+	return ok
+}
+
+// Start satisfies the runnable interface and started by the Operator SDK manager.
+func (m *Manager) Start(ctx context.Context) error {
+
+	m.logger.Info("starting event source manager")
+
+	<-ctx.Done()
+
+	m.logger.Info("stopping event source manager")
+	for _, v := range m.sources {
+		v.Stop()
+	}
 	return nil
 }
 
 // InjectLogger injectable logger
-func (m *EventManager) InjectLogger(logr logr.Logger) error {
+func (m *Manager) InjectLogger(logr logr.Logger) error {
 	m.logger = logr
 	return nil
 }
 
 // InjectClient injectable client
-func (m *EventManager) InjectClient(client client.Client) error {
+func (m *Manager) InjectClient(client client.Client) error {
 	m.client = client
 	return nil
 }

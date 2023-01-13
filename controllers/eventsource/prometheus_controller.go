@@ -60,7 +60,7 @@ func (r *PrometheusReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			logr.Info("Prometheus event source resource not found", "name", req.Name, "namespace", req.Namespace)
 
 			// Notify the monitoring service to stop monitoring the NamespaceName
-			err := r.eventManager.Remove(req.NamespacedName)
+			err := r.eventManager.RemoveSource(req.NamespacedName)
 			return ctrl.Result{}, err
 		}
 
@@ -71,10 +71,10 @@ func (r *PrometheusReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// check for the existence of the event source, in case it's already added and running
 	// there is no need to re-install. This handles re-queues due to status changes.
-	installed, err := r.eventManager.Exists(eventSourceCR)
+	installed := r.eventManager.SourceExists(eventSourceCR.ObjectMeta)
 	if !installed {
 		// install now that we've determined this event source needs to be added
-		err = r.eventManager.Add(eventSourceCR)
+		err = r.eventManager.AddSource(eventSourceCR)
 	}
 
 	return r.HandleOutcome(ctx, eventSourceCR, err)

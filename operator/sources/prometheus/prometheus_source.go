@@ -13,8 +13,8 @@ import (
 
 	"github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	esV1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
-	util "github.com/dvilaverde/k8s-countermeasures/operator"
 	"github.com/dvilaverde/k8s-countermeasures/operator/events"
+	"github.com/dvilaverde/k8s-countermeasures/operator/reconciler"
 	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -77,7 +77,7 @@ func (d *EventSource) InjectClient(client client.Client) error {
 func (d *EventSource) NotifyOn(p8sResource esV1.Prometheus, handler sources.Handler) (sources.CancelFunc, error) {
 	promConfig := p8sResource.Spec
 
-	p8SvcKey := util.ServiceToKey(promConfig.Service)
+	p8SvcKey := reconciler.ServiceToKey(promConfig.Service)
 
 	d.callbackMux.Lock()
 	defer d.callbackMux.Unlock()
@@ -110,7 +110,7 @@ func (d *EventSource) NotifyOn(p8sResource esV1.Prometheus, handler sources.Hand
 		d.p8Services[p8SvcKey] = client
 	}
 
-	nsName := util.ToNamespaceName(&countermeasure.ObjectMeta)
+	nsName := reconciler.ToNamespaceName(&countermeasure.ObjectMeta)
 	return d.cancelFunction(nsName), nil
 }
 

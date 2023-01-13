@@ -18,8 +18,10 @@ type EventData map[string]string
 type Event struct {
 	Name       string
 	ActiveTime time.Time
-	Data       *EventData
-	Source     SourceName
+	// Data is a pointer ref so these events can be added
+	// into the workqueue of the Dispatcher
+	Data   *EventData
+	Source SourceName
 }
 
 // Key hash the EventData into a key that can be used to de-duplicate events.
