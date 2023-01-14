@@ -58,8 +58,8 @@ type PrometheusSpec struct {
 	// to prometheus.
 	Auth *AuthSpec `json:"auth,omitempty"`
 
-	PollingInterval int32 `json:"pollingInterval"`
-	IncludePending  bool  `json:"includePending"`
+	PollingInterval metav1.Duration `json:"pollingInterval"`
+	IncludePending  bool            `json:"includePending"`
 }
 
 // PrometheusStatus defines the observed state of Prometheus

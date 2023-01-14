@@ -1,17 +1,25 @@
 package reconciler
 
 import (
+	"context"
+	"errors"
 	"strings"
+	"time"
 
 	"github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
+
+type HandleErrorFunc func(context.Context, metav1.ObjectMeta, error, time.Duration) (ctrl.Result, error)
+type HandleSuccessFunc func(context.Context, metav1.ObjectMeta) (ctrl.Result, error)
 
 type ReconcilerBase struct {
 	apireader  client.Reader
@@ -19,6 +27,8 @@ type ReconcilerBase struct {
 	scheme     *runtime.Scheme
 	restConfig *rest.Config
 	recorder   record.EventRecorder
+	OnError    HandleErrorFunc
+	OnSuccess  HandleSuccessFunc
 }
 
 func NewReconcilerBase(client client.Client, scheme *runtime.Scheme, restConfig *rest.Config, recorder record.EventRecorder, apireader client.Reader) ReconcilerBase {
@@ -34,6 +44,38 @@ func NewReconcilerBase(client client.Client, scheme *runtime.Scheme, restConfig 
 // NewFromManager creates a new ReconcilerBase from a Manager
 func NewFromManager(mgr manager.Manager, recorder record.EventRecorder) ReconcilerBase {
 	return NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), recorder, mgr.GetAPIReader())
+}
+
+func (r *ReconcilerBase) HandleOutcome(ctx context.Context, objectMeta metav1.ObjectMeta, err error) (ctrl.Result, error) {
+	if err != nil {
+		return r.HandleError(ctx, objectMeta, err)
+	}
+
+	return r.OnSuccess(ctx, objectMeta)
+}
+
+func (r *ReconcilerBase) HandleError(ctx context.Context, objectMeta metav1.ObjectMeta, err error) (ctrl.Result, error) {
+	return r.OnError(ctx, objectMeta, err, 0)
+}
+
+func (d *ReconcilerBase) GetSecret(ref *corev1.SecretReference) (corev1.Secret, error) {
+	secret := corev1.Secret{}
+
+	key := client.ObjectKey{
+		Namespace: ref.Namespace,
+		Name:      ref.Name,
+	}
+	err := d.client.Get(context.Background(), key, &secret)
+	if err != nil {
+		return corev1.Secret{}, err
+	}
+
+	// TODO: support auth TLS using secret ref
+	if secret.Type != corev1.SecretTypeBasicAuth {
+		return corev1.Secret{}, errors.New("only the basic auth type (kubernetes.io/basic-auth) is currently supported")
+	}
+
+	return secret, nil
 }
 
 // GetClient returns the OperatorSDK client
@@ -86,4 +128,22 @@ func SplitKey(key string) types.NamespacedName {
 		}
 	}
 	return types.NamespacedName{Name: key}
+}
+
+func FindNamedPort(service *corev1.Service, namedPort string) (corev1.ServicePort, bool) {
+	portCount := len(service.Spec.Ports)
+	if portCount == 1 {
+		return service.Spec.Ports[0], true
+	}
+
+	if portCount > 1 {
+		// find the port by the name
+		for _, port := range service.Spec.Ports {
+			if port.Name == namedPort {
+				return port, true
+			}
+		}
+	}
+
+	return corev1.ServicePort{}, false
 }

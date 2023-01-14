@@ -2,7 +2,6 @@ package prometheus
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -62,7 +61,7 @@ func TestGetAlerts(t *testing.T) {
 
 	alertTime := time.Date(2017, 01, 15, 0, 0, 0, 0, time.UTC)
 
-	alerts := make([]prom_v1.Alert, 1)
+	alerts := make([]prom_v1.Alert, 2)
 	activeAlert := prom_v1.Alert{
 		ActiveAt: alertTime,
 		Annotations: model.LabelSet{
@@ -70,13 +69,27 @@ func TestGetAlerts(t *testing.T) {
 		},
 		Labels: model.LabelSet{
 			"label":     "value",
-			"alertname": "custom-alert",
+			"alertname": "active-alert",
 			"pod":       "app-pod-xyxsl",
 		},
 		State: prom_v1.AlertStateFiring,
 		Value: "1",
 	}
+	pendingAlert := prom_v1.Alert{
+		ActiveAt: alertTime,
+		Annotations: model.LabelSet{
+			"managed-by": "helm",
+		},
+		Labels: model.LabelSet{
+			"label":     "value",
+			"alertname": "pending-alert",
+			"pod":       "app-pod-xyxsl",
+		},
+		State: prom_v1.AlertStatePending,
+		Value: "1",
+	}
 	alerts[0] = activeAlert
+	alerts[1] = pendingAlert
 
 	api.On("Alerts", mock.AnythingOfType("*context.timerCtx")).Return(prom_v1.AlertsResult{
 		Alerts: alerts,
@@ -88,28 +101,23 @@ func TestGetAlerts(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	active := activeAlerts.IsAlertActive("custom-alert", false)
-	assert.True(t, active)
+	assert.Equal(t, 2, len(activeAlerts.alerts))
 
-	active = activeAlerts.IsAlertActive("custom-alert2", false)
-	assert.False(t, active)
-
-	events, err := activeAlerts.ToEvents("custom-alert", false)
+	events, err := activeAlerts.ToEvents(false)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-
-	_, err = activeAlerts.ToEvents("custom-alert2", false)
-	if err == nil {
-		t.Error(errors.New("expected an error trying to create alerts from a non existent event"))
-		return
-	} else {
-		var errPointer *AlertNotFiring
-		assert.True(t, errors.As(err, &errPointer))
-	}
-
+	assert.Equal(t, 1, len(events))
 	data := *events[0].Data
 	assert.Equal(t, 3, len(data))
 	assert.Equal(t, "app-pod-xyxsl", data["pod"])
+	assert.Equal(t, "active-alert", data["alertname"])
+
+	events, err = activeAlerts.ToEvents(true)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	assert.Equal(t, 2, len(events))
 }

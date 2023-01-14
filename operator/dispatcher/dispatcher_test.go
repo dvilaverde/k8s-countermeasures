@@ -54,9 +54,8 @@ func TestDispatcher_Dispatch(t *testing.T) {
 	event := listener.events[0]
 	assert.Equal(t, e1.Name, event.Name)
 	assert.Equal(t, e1.ActiveTime, event.ActiveTime)
-	rcvData := *event.Data
-	assert.Equal(t, 1, len(rcvData))
-	assert.Equal(t, "v1", rcvData["d1"])
+	assert.Equal(t, 1, len(*event.Data))
+	assert.Equal(t, "v1", event.Data.Get("d1"))
 }
 
 func TestDispatcher_DispatchRetry(t *testing.T) {
@@ -91,9 +90,8 @@ func TestDispatcher_DispatchRetry(t *testing.T) {
 	event := listener.events[0]
 	assert.Equal(t, e1.Name, event.Name)
 	assert.Equal(t, e1.ActiveTime, event.ActiveTime)
-	rcvData := *event.Data
-	assert.Equal(t, 1, len(rcvData))
-	assert.Equal(t, "v1", rcvData["d1"])
+	assert.Equal(t, 1, len(*event.Data))
+	assert.Equal(t, "v1", event.Data.Get("d1"))
 }
 
 func TestDispatcher_DispatchError(t *testing.T) {

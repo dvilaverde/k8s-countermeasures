@@ -6,6 +6,7 @@ import (
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -26,6 +27,88 @@ func TestToNamespaceName(t *testing.T) {
 	}
 
 	assert.Equal(t, "namespace/object", ToNamespaceName(objectMeta).String())
+}
+
+func Test_findNamedPort(t *testing.T) {
+	type args struct {
+		service   *corev1.Service
+		namedPort string
+	}
+	tests := []struct {
+		name  string
+		args  args
+		want  corev1.ServicePort
+		want1 bool
+	}{
+		{
+			name: "two ports",
+			args: args{
+				service: &corev1.Service{
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{
+								Name: "foo",
+								Port: 8080,
+							},
+							{
+								Name: "web",
+								Port: 8081,
+							},
+						},
+					},
+				},
+				namedPort: "web",
+			},
+			want: corev1.ServicePort{
+				Name: "web",
+				Port: 8081,
+			},
+			want1: true,
+		},
+		{
+			name: "one port",
+			args: args{
+				service: &corev1.Service{
+					Spec: corev1.ServiceSpec{
+						Ports: []corev1.ServicePort{
+							{
+								Name: "foo",
+								Port: 8080,
+							},
+						},
+					},
+				},
+				namedPort: "web",
+			},
+			want: corev1.ServicePort{
+				Name: "foo",
+				Port: 8080,
+			},
+			want1: true,
+		},
+		{
+			name: "zero ports",
+			args: args{
+				service: &corev1.Service{
+					Spec: corev1.ServiceSpec{},
+				},
+				namedPort: "web",
+			},
+			want:  corev1.ServicePort{},
+			want1: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1 := FindNamedPort(tt.args.service, tt.args.namedPort)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("findNamedPort() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("findNamedPort() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
 }
 
 func TestToKey(t *testing.T) {

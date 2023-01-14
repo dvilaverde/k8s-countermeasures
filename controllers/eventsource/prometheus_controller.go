@@ -18,8 +18,11 @@ package eventsource
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,12 +34,14 @@ import (
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/operator/reconciler"
 	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
+	"github.com/dvilaverde/k8s-countermeasures/operator/sources/prometheus"
 )
 
 // PrometheusReconciler reconciles a Prometheus object
 type PrometheusReconciler struct {
 	reconciler.ReconcilerBase
 	eventManager sources.EventManager
+	Log          logr.Logger
 }
 
 //+kubebuilder:rbac:groups=eventsource.vilaverde.rocks,resources=prometheuses,verbs=get;list;watch;create;update;patch;delete
@@ -74,10 +79,14 @@ func (r *PrometheusReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	installed := r.eventManager.SourceExists(eventSourceCR.ObjectMeta)
 	if !installed {
 		// install now that we've determined this event source needs to be added
-		err = r.eventManager.AddSource(eventSourceCR)
+		client, err := r.createP8sClient(eventSourceCR)
+		if err != nil {
+			return r.HandleErrorAndRequeue(ctx, eventSourceCR.ObjectMeta, err, time.Duration(30*time.Second))
+		}
+		err = r.eventManager.AddSource(prometheus.NewEventSource(eventSourceCR, client))
 	}
 
-	return r.HandleOutcome(ctx, eventSourceCR, err)
+	return r.HandleOutcome(ctx, eventSourceCR.ObjectMeta, err)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -87,32 +96,33 @@ func (r *PrometheusReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *PrometheusReconciler) HandleSuccess(ctx context.Context, es *v1alpha1.Prometheus) (ctrl.Result, error) {
+func (r *PrometheusReconciler) HandleSuccess(ctx context.Context, objectMeta metav1.ObjectMeta) (ctrl.Result, error) {
 
 	logger := log.FromContext(ctx)
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		eventSourceCR := &v1alpha1.Prometheus{}
 		// Let's re-fetch the prometheus Custom Resource after update the status
 		// so that we have the latest state of the resource on the cluster, and we will avoid
 		// raise the issue "the object has been modified, please apply
 		// your changes to the latest version and try again" which would re-trigger the reconciliation
 		// if we try to update it again in the following operations
-		ns := types.NamespacedName{Namespace: es.ObjectMeta.Namespace, Name: es.ObjectMeta.Name}
-		if err := r.GetClient().Get(ctx, ns, es); err != nil {
+		ns := types.NamespacedName{Namespace: objectMeta.Namespace, Name: objectMeta.Name}
+		if err := r.GetClient().Get(ctx, ns, eventSourceCR); err != nil {
 			logger.Error(err, "failed to reload prometheus event source")
 			return err
 		}
 
-		meta.SetStatusCondition(&es.Status.Conditions, metav1.Condition{
+		meta.SetStatusCondition(&eventSourceCR.Status.Conditions, metav1.Condition{
 			Type:               v1alpha1.TypePolling,
 			LastTransitionTime: metav1.Now(),
-			ObservedGeneration: es.Generation,
+			ObservedGeneration: objectMeta.Generation,
 			Status:             metav1.ConditionTrue,
 			Reason:             v1alpha1.ReasonSucceeded,
 		})
 
-		es.Status.State = v1alpha1.Polling
-		return r.GetClient().Status().Update(ctx, es)
+		eventSourceCR.Status.State = v1alpha1.Polling
+		return r.GetClient().Status().Update(ctx, eventSourceCR)
 	})
 
 	if err != nil {
@@ -126,38 +136,38 @@ func (r *PrometheusReconciler) HandleSuccess(ctx context.Context, es *v1alpha1.P
 	return ctrl.Result{}, err
 }
 
-func (r *PrometheusReconciler) HandleError(ctx context.Context, es *v1alpha1.Prometheus, err error) (ctrl.Result, error) {
-	return r.HandleErrorAndRequeue(ctx, es, err, 0)
-}
-
-func (r *PrometheusReconciler) HandleErrorAndRequeue(ctx context.Context, es *v1alpha1.Prometheus, err error, requeueAfter time.Duration) (ctrl.Result, error) {
-
-	r.GetRecorder().Event(es, "Warning", "ProcessingError", err.Error())
+func (r *PrometheusReconciler) HandleErrorAndRequeue(ctx context.Context, objectMeta metav1.ObjectMeta, err error, requeueAfter time.Duration) (ctrl.Result, error) {
 
 	logger := log.FromContext(ctx)
 	retryErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		eventSourceCR := &v1alpha1.Prometheus{}
 		// Let's re-fetch the prometheus Custom Resource after update the status
 		// so that we have the latest state of the resource on the cluster, and we will avoid
 		// raise the issue "the object has been modified, please apply
 		// your changes to the latest version and try again" which would re-trigger the reconciliation
 		// if we try to update it again in the following operations
-		ns := types.NamespacedName{Namespace: es.ObjectMeta.Namespace, Name: es.ObjectMeta.Name}
-		if err := r.GetClient().Get(ctx, ns, es); err != nil {
+		ns := types.NamespacedName{Namespace: objectMeta.Namespace, Name: objectMeta.Name}
+		if err := r.GetClient().Get(ctx, ns, eventSourceCR); err != nil {
 			logger.Error(err, "failed to reload prometheus event source")
 			return err
 		}
 
-		meta.SetStatusCondition(&es.Status.Conditions, metav1.Condition{
+		meta.SetStatusCondition(&eventSourceCR.Status.Conditions, metav1.Condition{
 			Type:               v1alpha1.TypePolling,
 			LastTransitionTime: metav1.Now(),
-			ObservedGeneration: es.Generation,
+			ObservedGeneration: objectMeta.Generation,
 			Status:             metav1.ConditionTrue,
 			Reason:             v1alpha1.ReasonSucceeded,
 			Message:            err.Error(),
 		})
 
-		es.Status.State = v1alpha1.Error
-		return r.GetClient().Status().Update(ctx, es)
+		eventSourceCR.Status.State = v1alpha1.Error
+		err = r.GetClient().Status().Update(ctx, eventSourceCR)
+		if err == nil {
+			r.GetRecorder().Event(eventSourceCR, "Warning", "ProcessingError", err.Error())
+		}
+
+		return err
 	})
 
 	if retryErr != nil {
@@ -166,14 +176,6 @@ func (r *PrometheusReconciler) HandleErrorAndRequeue(ctx context.Context, es *v1
 	}
 
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
-}
-
-func (r *PrometheusReconciler) HandleOutcome(ctx context.Context, es *v1alpha1.Prometheus, err error) (ctrl.Result, error) {
-	if err != nil {
-		return r.HandleError(ctx, es, err)
-	}
-
-	return r.HandleSuccess(ctx, es)
 }
 
 // MarkInitializing mark this event source with the transient initializing state
@@ -213,4 +215,47 @@ func (r *PrometheusReconciler) MarkInitializing(ctx context.Context, es *v1alpha
 	}
 
 	return err
+}
+
+func (r *PrometheusReconciler) createP8sClient(prom *v1alpha1.Prometheus) (*prometheus.PrometheusService, error) {
+	promConfig := prom.Spec
+	svc := promConfig.Service
+
+	serviceObject := &corev1.Service{}
+	if err := r.GetClient().Get(context.Background(), svc.GetNamespacedName(), serviceObject); err != nil {
+		return nil, err
+	}
+
+	svcPort, found := reconciler.FindNamedPort(serviceObject, svc.TargetPort)
+	var port int32
+	if found {
+		port = svcPort.Port
+	} else {
+		port = svc.Port
+	}
+
+	scheme := "http"
+	if svc.UseTls {
+		scheme = "https"
+	}
+
+	address := fmt.Sprintf("%v://%v.%v.svc:%v", scheme, svc.Name, svc.Namespace, port)
+
+	var username, password string
+	if promConfig.Auth != nil {
+		secretRef := promConfig.Auth.SecretReference.DeepCopy()
+		if len(secretRef.Namespace) == 0 {
+			secretRef.Namespace = prom.ObjectMeta.Namespace
+		}
+		secret, err := r.GetSecret(secretRef)
+		if err != nil {
+			r.Log.Error(err, fmt.Sprintf("could not lookup secret %s in namespace %s", secretRef.Name, secretRef.Namespace))
+			return nil, err
+		}
+
+		username = string(secret.Data["username"])
+		password = string(secret.Data["password"])
+	}
+
+	return prometheus.NewPrometheusClient(address, username, password)
 }

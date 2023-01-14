@@ -44,16 +44,16 @@ type EventManager interface {
 
 type EventSource interface {
 	Key() ObjectKey
-	Start() error
+	Start(<-chan struct{}) error
 	Subscribe(EventPublisher) error
-	Stop() error
 }
 
 var _ EventManager = &Manager{}
 
 type Manager struct {
-	logger logr.Logger
-	client client.Client
+	logger   logr.Logger
+	client   client.Client
+	shutdown chan struct{}
 
 	publisher EventPublisher
 
@@ -107,7 +107,8 @@ func (m *Manager) AddSource(es EventSource) error {
 		}
 		return m.publisher.Publish(event)
 	}))
-	es.Start()
+	// place the event source on a goroutine so that it wont' block this method
+	go es.Start(m.shutdown)
 
 	return nil
 }
@@ -153,9 +154,7 @@ func (m *Manager) Start(ctx context.Context) error {
 	<-ctx.Done()
 
 	m.logger.Info("stopping event source manager")
-	for _, v := range m.sources {
-		v.Stop()
-	}
+	close(m.shutdown)
 	return nil
 }
 
@@ -169,4 +168,8 @@ func (m *Manager) InjectLogger(logr logr.Logger) error {
 func (m *Manager) InjectClient(client client.Client) error {
 	m.client = client
 	return nil
+}
+
+func (k ObjectKey) GetName() string {
+	return k.Namespace + "/" + k.Name
 }

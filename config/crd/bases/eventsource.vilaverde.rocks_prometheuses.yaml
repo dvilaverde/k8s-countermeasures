@@ -72,8 +72,7 @@ spec:
               includePending:
                 type: boolean
               pollingInterval:
-                format: int32
-                type: integer
+                type: string
               service:
                 properties:
                   name:

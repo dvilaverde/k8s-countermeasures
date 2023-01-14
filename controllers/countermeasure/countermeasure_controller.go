@@ -35,11 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 )
 
-type counterMeasureHandle struct {
-	cancelFunc sources.CancelFunc
-	generation int64
-}
-
 // CounterMeasureReconciler reconciles a CounterMeasure object
 type CounterMeasureReconciler struct {
 	reconciler.ReconcilerBase
@@ -90,7 +85,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if r.EventManager.CounterMeasureExists(counterMeasureCR.ObjectMeta) {
-		return r.HandleSuccess(ctx, counterMeasureCR)
+		return r.HandleSuccess(ctx, counterMeasureCR.ObjectMeta)
 	}
 
 	logger.Info("Reconciling CounterMeasure", "name", req.Name, "namespace", req.Namespace)
@@ -106,15 +101,15 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	logger.Info("Validating counter measure spec", "name", req.Name, "namespace", req.Namespace)
 
 	if ok, err := r.isValid(ctx, counterMeasureCR); !ok {
-		return r.HandleError(ctx, counterMeasureCR, err)
+		return r.HandleError(ctx, counterMeasureCR.ObjectMeta, err)
 	}
 
 	err = r.EventManager.AddCounterMeasure(counterMeasureCR)
 	if err != nil {
-		return r.HandleError(ctx, counterMeasureCR, err)
+		return r.HandleError(ctx, counterMeasureCR.ObjectMeta, err)
 	}
 
-	return r.HandleSuccess(ctx, counterMeasureCR)
+	return r.HandleSuccess(ctx, counterMeasureCR.ObjectMeta)
 }
 
 func (r *CounterMeasureReconciler) isValid(ctx context.Context, cm *v1alpha1.CounterMeasure) (bool, error) {
@@ -127,22 +122,26 @@ func (r *CounterMeasureReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.actionRegistry = actions.Registry{}
 	r.actionRegistry.Initialize()
 
+	r.OnError = r.HandleErrorAndRequeue
+	r.OnSuccess = r.HandleSuccess
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.CounterMeasure{}).
 		Complete(r)
 }
 
-func (r *CounterMeasureReconciler) HandleSuccess(ctx context.Context, cm *v1alpha1.CounterMeasure) (ctrl.Result, error) {
+func (r *CounterMeasureReconciler) HandleSuccess(ctx context.Context, objectMeta metav1.ObjectMeta) (ctrl.Result, error) {
 
 	logger := log.FromContext(ctx)
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		cm := &v1alpha1.CounterMeasure{}
 		// Let's re-fetch the countermeasure Custom Resource after update the status
 		// so that we have the latest state of the resource on the cluster, and we will avoid
 		// raise the issue "the object has been modified, please apply
 		// your changes to the latest version and try again" which would re-trigger the reconciliation
 		// if we try to update it again in the following operations
-		ns := types.NamespacedName{Namespace: cm.ObjectMeta.Namespace, Name: cm.ObjectMeta.Name}
+		ns := types.NamespacedName{Namespace: objectMeta.Namespace, Name: objectMeta.Name}
 		if err := r.GetClient().Get(ctx, ns, cm); err != nil {
 			logger.Error(err, "failed to reload countermeasure")
 			return err
@@ -151,7 +150,7 @@ func (r *CounterMeasureReconciler) HandleSuccess(ctx context.Context, cm *v1alph
 		meta.SetStatusCondition(&cm.Status.Conditions, metav1.Condition{
 			Type:               v1alpha1.TypeMonitoring,
 			LastTransitionTime: metav1.Now(),
-			ObservedGeneration: cm.Generation,
+			ObservedGeneration: objectMeta.Generation,
 			Status:             metav1.ConditionTrue,
 			Reason:             v1alpha1.ReasonSucceeded,
 		})
@@ -173,22 +172,17 @@ func (r *CounterMeasureReconciler) HandleSuccess(ctx context.Context, cm *v1alph
 	return ctrl.Result{}, err
 }
 
-func (r *CounterMeasureReconciler) HandleError(ctx context.Context, cm *v1alpha1.CounterMeasure, err error) (ctrl.Result, error) {
-	return r.HandleErrorAndRequeue(ctx, cm, err, 0)
-}
-
-func (r *CounterMeasureReconciler) HandleErrorAndRequeue(ctx context.Context, cm *v1alpha1.CounterMeasure, err error, requeueAfter time.Duration) (ctrl.Result, error) {
-
-	r.GetRecorder().Event(cm, "Warning", "ProcessingError", err.Error())
+func (r *CounterMeasureReconciler) HandleErrorAndRequeue(ctx context.Context, objectMeta metav1.ObjectMeta, err error, requeueAfter time.Duration) (ctrl.Result, error) {
 
 	logger := log.FromContext(ctx)
 	retryErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		cm := &v1alpha1.CounterMeasure{}
 		// Let's re-fetch the countermeasure Custom Resource after update the status
 		// so that we have the latest state of the resource on the cluster, and we will avoid
 		// raise the issue "the object has been modified, please apply
 		// your changes to the latest version and try again" which would re-trigger the reconciliation
 		// if we try to update it again in the following operations
-		ns := types.NamespacedName{Namespace: cm.ObjectMeta.Namespace, Name: cm.ObjectMeta.Name}
+		ns := types.NamespacedName{Namespace: objectMeta.Namespace, Name: objectMeta.Name}
 		if err := r.GetClient().Get(ctx, ns, cm); err != nil {
 			logger.Error(err, "failed to reload countermeasure")
 			return err
@@ -197,7 +191,7 @@ func (r *CounterMeasureReconciler) HandleErrorAndRequeue(ctx context.Context, cm
 		meta.SetStatusCondition(&cm.Status.Conditions, metav1.Condition{
 			Type:               v1alpha1.TypeMonitoring,
 			LastTransitionTime: metav1.Now(),
-			ObservedGeneration: cm.Generation,
+			ObservedGeneration: objectMeta.Generation,
 			Status:             metav1.ConditionTrue,
 			Reason:             v1alpha1.ReasonSucceeded,
 			Message:            err.Error(),
@@ -205,7 +199,12 @@ func (r *CounterMeasureReconciler) HandleErrorAndRequeue(ctx context.Context, cm
 
 		cm.Status.LastStatus = v1alpha1.Error
 		cm.Status.LastStatusChangeTime = &metav1.Time{Time: time.Now()}
-		return r.GetClient().Status().Update(ctx, cm)
+
+		err = r.GetClient().Status().Update(ctx, cm)
+		if err == nil {
+			r.GetRecorder().Event(cm, "Warning", "ProcessingError", err.Error())
+		}
+		return err
 	})
 
 	if retryErr != nil {
@@ -214,14 +213,6 @@ func (r *CounterMeasureReconciler) HandleErrorAndRequeue(ctx context.Context, cm
 	}
 
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
-}
-
-func (r *CounterMeasureReconciler) HandleOutcome(ctx context.Context, cm *v1alpha1.CounterMeasure, err error) (ctrl.Result, error) {
-	if err != nil {
-		return r.HandleError(ctx, cm, err)
-	}
-
-	return r.HandleSuccess(ctx, cm)
 }
 
 // MarkInitializing mark this countermeasure with the transient initializing state

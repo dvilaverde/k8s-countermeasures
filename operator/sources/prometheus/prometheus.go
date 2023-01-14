@@ -9,7 +9,6 @@ import (
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/config"
-	"github.com/prometheus/common/model"
 )
 
 type AlertNotFiring struct {
@@ -22,8 +21,6 @@ func (nf *AlertNotFiring) Error() string {
 	}
 	return nf.msg
 }
-
-type Builder func(string, string, string) (*PrometheusService, error)
 
 type PrometheusService struct {
 	p8sApi v1.API
@@ -60,17 +57,11 @@ func NewPrometheusClient(address, username, password string) (*PrometheusService
 	return NewPrometheusService(v1.NewAPI(client)), nil
 }
 
-// IsAlertActive returns true if the named alert is currently 'firing', or 'pending' if enabled.
-func (r *AlertQueryResult) IsAlertActive(alertName string, includePending bool) bool {
-	foundAlerts := r.findActiveAlert(alertName, includePending)
-	return len(foundAlerts) > 0
-}
-
 // ToEvents get the Events for the alert name.
-func (r *AlertQueryResult) ToEvents(alertName string, includePending bool) ([]events.Event, error) {
-	foundAlerts := r.findActiveAlert(alertName, includePending)
+func (r *AlertQueryResult) ToEvents(includePending bool) ([]events.Event, error) {
+	foundAlerts := r.findActiveAlert(includePending)
 	if len(foundAlerts) == 0 {
-		return nil, &AlertNotFiring{msg: fmt.Sprintf("alert %v is not firing (or pending)", alertName)}
+		return nil, &AlertNotFiring{msg: "alerts are not firing (or pending)"}
 	}
 
 	eventsArr := make([]events.Event, len(foundAlerts))
@@ -94,13 +85,11 @@ func (r *AlertQueryResult) ToEvents(alertName string, includePending bool) ([]ev
 }
 
 // findActiveAlert returns an alert if it is firing (or pending), but not inactive
-func (r *AlertQueryResult) findActiveAlert(alertName string, includePending bool) []v1.Alert {
+func (r *AlertQueryResult) findActiveAlert(includePending bool) []v1.Alert {
 	foundAlerts := make([]v1.Alert, 0)
 	for _, alert := range r.alerts {
 		if alert.State == v1.AlertStateFiring || (includePending && alert.State == v1.AlertStatePending) {
-			if alert.Labels["alertname"] == model.LabelValue(alertName) {
-				foundAlerts = append(foundAlerts, alert)
-			}
+			foundAlerts = append(foundAlerts, alert)
 		}
 	}
 

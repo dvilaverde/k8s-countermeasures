@@ -15,6 +15,10 @@ type SourceName struct {
 
 type EventData map[string]string
 
+func (d *EventData) Get(key string) string {
+	return (*d)[key]
+}
+
 type Event struct {
 	Name       string
 	ActiveTime time.Time

@@ -1,76 +1,78 @@
 package prometheus
 
 import (
-	"context"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
-	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/operator/events"
 	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-type OperatorSDKClientMock struct {
-	mock.Mock
-	client.Client
-}
-
-func (m *OperatorSDKClientMock) Get(ctx context.Context,
-	key client.ObjectKey,
-	obj client.Object,
-	opts ...client.GetOption) error {
-
-	args := m.Called(ctx, key, nil, nil)
-	return args.Error(0)
-}
-
-func Test_callbackSuppressExpired(t *testing.T) {
-
-	data := make(events.EventData)
-	event := events.Event{
-		Name:       "Alert1",
-		ActiveTime: time.Now().Add(-30 * time.Second),
-		Data:       &data,
+func TestEventSource_Key(t *testing.T) {
+	type fields struct {
+		key sources.ObjectKey
 	}
-
-	cb := callback{
-		name:             types.NamespacedName{Namespace: "ns", Name: "name"},
-		suppressedAlerts: make(map[string]time.Time),
-		alertSpec: &v1alpha1.OnEventSpec{
-			SuppressionPolicy: &v1alpha1.SuppressionPolicySpec{
-				Duration: &metav1.Duration{
-					Duration: 15 * time.Second,
+	tests := []struct {
+		name   string
+		fields fields
+		want   sources.ObjectKey
+	}{
+		{
+			name: "nskey",
+			fields: fields{
+				key: sources.ObjectKey{
+					NamespacedName: types.NamespacedName{
+						Namespace: "ns",
+						Name:      "name",
+					},
+					Generation: 1,
 				},
+			},
+			want: sources.ObjectKey{
+				NamespacedName: types.NamespacedName{
+					Namespace: "ns",
+					Name:      "name",
+				},
+				Generation: 1,
 			},
 		},
 	}
-
-	cb.suppressedAlerts[event.Key()] = event.ActiveTime
-
-	cb.removeExpiredSuppressions()
-
-	assert.Equal(t, 0, len(cb.suppressedAlerts), "suppressed alert was not deleted")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := &EventSource{
+				key: tt.fields.key,
+			}
+			if got := d.Key(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("EventSource.Key() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
-func Test_Notify(t *testing.T) {
+func TestEventSource_Subscribe(t *testing.T) {
+	s := &EventSource{
+		subscribers: make([]sources.EventPublisher, 0),
+	}
 
-	ctx := context.TODO()
+	assert.Equal(t, 0, len(s.subscribers))
 
-	mockClient := new(OperatorSDKClientMock)
-	mockClient.On("Get", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	s.Subscribe(sources.EventPublisherFunc(func(events.Event) error {
+		return nil
+	}))
 
-	p8Client, api, err := setupMocked()
+	assert.Equal(t, 1, len(s.subscribers))
+}
+
+func TestEventSource_poll(t *testing.T) {
+	client, api, err := setupMocked()
 	if err != nil {
 		t.Error(err)
 		return
@@ -78,138 +80,60 @@ func Test_Notify(t *testing.T) {
 
 	alertTime := time.Date(2017, 01, 15, 0, 0, 0, 0, time.UTC)
 	alerts := make([]prom_v1.Alert, 1)
-	alerts[0] = prom_v1.Alert{
+	activeAlert := prom_v1.Alert{
 		ActiveAt: alertTime,
+		Annotations: model.LabelSet{
+			"managed-by": "helm",
+		},
 		Labels: model.LabelSet{
 			"label":     "value",
-			"alertname": "custom-alert",
+			"alertname": "active-alert",
 			"pod":       "app-pod-xyxsl",
 		},
 		State: prom_v1.AlertStateFiring,
 		Value: "1",
 	}
+	alerts[0] = activeAlert
 
 	api.On("Alerts", mock.AnythingOfType("*context.timerCtx")).Return(prom_v1.AlertsResult{
 		Alerts: alerts,
 	})
 
-	builder := func(string, string, string) (*PrometheusService, error) {
-		return NewPrometheusService(p8Client.API()), nil
-	}
+	p := NewPrometheusService(client.API())
 
-	source := NewEventSource(builder, 1*time.Second)
-	source.InjectClient(mockClient)
-	if err := source.Start(ctx); err != nil {
-		t.Error(err)
-		return
-	}
-
-	cm := v1alpha1.CounterMeasure{
-		TypeMeta:   metav1.TypeMeta{Kind: "CounterMeasure", APIVersion: "countermeasure.vilaverde.rocks/v1alpha1"},
-		ObjectMeta: metav1.ObjectMeta{Name: "cm1", Namespace: "ns1"},
-		Spec: v1alpha1.CounterMeasureSpec{
-			OnEvent: v1alpha1.OnEventSpec{
-				EventName: "custom-alert",
+	promCR := &v1alpha1.Prometheus{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "prom1",
+			Namespace:  "ns1",
+			Generation: 1,
+		},
+		Spec: v1alpha1.PrometheusSpec{
+			IncludePending: false,
+			PollingInterval: metav1.Duration{
+				Duration: 15 * time.Millisecond,
 			},
 		},
 	}
+	eventsource := NewEventSource(promCR, p)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	assert.Equal(t, "ns1/prom1", eventsource.Key().GetName())
 
-	assert.True(t, source.Supports(&cm.Spec))
-	source.NotifyOn(cm, sources.HandlerFunc(func(nn types.NamespacedName, e []events.Event, done chan<- string) {
-		assert.Equal(t, 3, len(*e[0].Data))
-		wg.Done()
-		close(done)
+	done := make(chan struct{})
+	go eventsource.Start(done)
+
+	publishCh := make(chan events.Event)
+	eventsource.Subscribe(sources.EventPublisherFunc(func(e events.Event) error {
+		publishCh <- e
+		return nil
 	}))
 
-	if err != nil {
-		t.Error(err)
-		return
+	select {
+	case event := <-publishCh:
+		assert.Equal(t, "active-alert", event.Name)
+		assert.Equal(t, "app-pod-xyxsl", event.Data.Get("pod"))
+	case <-time.After(time.Second * 5):
+		t.Fatal("event never arrived")
 	}
 
-	wg.Wait()
-}
-
-func Test_findNamedPort(t *testing.T) {
-	type args struct {
-		service   *corev1.Service
-		namedPort string
-	}
-	tests := []struct {
-		name  string
-		args  args
-		want  corev1.ServicePort
-		want1 bool
-	}{
-		{
-			name: "two ports",
-			args: args{
-				service: &corev1.Service{
-					Spec: corev1.ServiceSpec{
-						Ports: []corev1.ServicePort{
-							{
-								Name: "foo",
-								Port: 8080,
-							},
-							{
-								Name: "web",
-								Port: 8081,
-							},
-						},
-					},
-				},
-				namedPort: "web",
-			},
-			want: corev1.ServicePort{
-				Name: "web",
-				Port: 8081,
-			},
-			want1: true,
-		},
-		{
-			name: "one port",
-			args: args{
-				service: &corev1.Service{
-					Spec: corev1.ServiceSpec{
-						Ports: []corev1.ServicePort{
-							{
-								Name: "foo",
-								Port: 8080,
-							},
-						},
-					},
-				},
-				namedPort: "web",
-			},
-			want: corev1.ServicePort{
-				Name: "foo",
-				Port: 8080,
-			},
-			want1: true,
-		},
-		{
-			name: "zero ports",
-			args: args{
-				service: &corev1.Service{
-					Spec: corev1.ServiceSpec{},
-				},
-				namedPort: "web",
-			},
-			want:  corev1.ServicePort{},
-			want1: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := findNamedPort(tt.args.service, tt.args.namedPort)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("findNamedPort() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("findNamedPort() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
+	close(done)
 }
