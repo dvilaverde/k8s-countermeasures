@@ -10,6 +10,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type EventListener interface {
@@ -34,7 +35,8 @@ func NewDispatcher(eventListener EventListener, workers int) *Dispatcher {
 
 // Start implements the Runnable interface so that it can be started by the Operator SDK manager.
 func (d *Dispatcher) Start(ctx context.Context) error {
-	d.logger.Info(fmt.Sprintf("starting event dispatcher with %d workers", d.workers))
+	log := log.FromContext(ctx)
+	log.Info(fmt.Sprintf("starting event dispatcher with %d workers", d.workers))
 
 	// Launch two workers to process Foo resources
 	for i := 0; i < d.workers; i++ {
@@ -42,7 +44,7 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 	}
 
 	<-ctx.Done()
-	d.logger.Info("stopping event dispatcher")
+	log.Info("stopping event dispatcher")
 	return nil
 }
 

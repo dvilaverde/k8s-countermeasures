@@ -21,7 +21,7 @@
             "type": "go",
             "request": "launch",
             "mode": "test",
-            "program": "${workspaceFolder}/controllers/countermeasure_controller_test.go",
+            "program": "${fileDirname}",
             "env": {
                 "KUBEBUILDER_ASSETS": "${workspaceFolder}/bin/k8s/1.25.0-darwin-arm64",
             }

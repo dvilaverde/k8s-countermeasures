@@ -34,16 +34,6 @@ var _ = Describe("CounterMeasures webhook", func() {
 		CounterMeasureNamespace = "default"
 	)
 
-	// AfterEach(func() {
-	// 	s := &corev1.Service{}
-	// 	if err := k8sClient.Get(context.TODO(), types.NamespacedName{
-	// 		Namespace: CounterMeasureNamespace,
-	// 		Name:      CounterMeasureName,
-	// 	}, s); err == nil {
-	// 		_ = k8sClient.Delete(context.TODO(), s)
-	// 	}
-	// })
-
 	Context("Deploying a good countermeasure", func() {
 		It("should not return any errors", func() {
 
@@ -90,6 +80,7 @@ var _ = Describe("CounterMeasures webhook", func() {
 							MatchLabels: map[string]string{"env": "dev"},
 						},
 					},
+					DryRun: true,
 					Actions: []Action{
 						{
 							Name: "delete-temp",
