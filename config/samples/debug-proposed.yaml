@@ -10,10 +10,11 @@ metadata:
     app.kubernetes.io/created-by: k8s-countermeasures
 spec:
   onEvent:
-    named: HTTP_404
+    name: HTTP_404
     sourceSelector:
-      app.kubernetes.io/name: countermeasure
-      app.kubernetes.io/instance: dev
+      matchLabels:
+        app.kubernetes.io/name: countermeasure
+        app.kubernetes.io/instance: dev
   actions:
   - name: debug-pod
     debug:

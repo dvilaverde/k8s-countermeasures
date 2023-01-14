@@ -21,47 +21,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var _ = Describe("CounterMeasures webhook", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 
 	const (
-		CounterMeasureName      = "test-countermeasure"
+		CounterMeasureName      = "test-webhook"
 		CounterMeasureNamespace = "default"
 	)
 
 	Context("Deploying a good countermeasure", func() {
 		It("should not return any errors", func() {
-
-			svc := &corev1.Service{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v1",
-					Kind:       "Service",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "prom-operated",
-					Namespace: "default",
-				},
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name: "web",
-							Port: 8080,
-							TargetPort: intstr.IntOrString{
-								Type:   intstr.Int,
-								IntVal: 8080,
-							},
-						},
-					},
-				},
-			}
-			err := k8sClient.Create(ctx, svc)
-			Expect(err).NotTo(HaveOccurred())
-
 			By("deploying a good countermeaure")
 			ctx := context.Background()
 			counterMeasure := &CounterMeasure{
@@ -76,9 +48,6 @@ var _ = Describe("CounterMeasures webhook", func() {
 				Spec: CounterMeasureSpec{
 					OnEvent: OnEventSpec{
 						EventName: "CPUThrottlingHigh",
-						SourceSelector: metav1.LabelSelector{
-							MatchLabels: map[string]string{"env": "dev"},
-						},
 					},
 					DryRun: true,
 					Actions: []Action{
@@ -92,7 +61,8 @@ var _ = Describe("CounterMeasures webhook", func() {
 					},
 				},
 			}
-			err = k8sClient.Create(ctx, counterMeasure)
+
+			err := k8sClient.Create(ctx, counterMeasure)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
@@ -115,7 +85,7 @@ var _ = Describe("CounterMeasures webhook", func() {
 
 			err := k8sClient.Create(ctx, counterMeasure)
 			Expect(err).Should(HaveOccurred())
-			Ω(err.Error()).Should(Equal("admission webhook \"vcountermeasure.kb.io\" denied the request: [prometheus event source is required, one or more actions are required]"))
+			Ω(err.Error()).Should(Equal("admission webhook \"vcountermeasure.kb.io\" denied the request: [event name is required, one or more actions are required]"))
 		})
 
 		It("should fail if actions have too many types", func() {
@@ -131,9 +101,6 @@ var _ = Describe("CounterMeasures webhook", func() {
 				Spec: CounterMeasureSpec{
 					OnEvent: OnEventSpec{
 						EventName: "CPUThrottlingHigh",
-						SourceSelector: metav1.LabelSelector{
-							MatchLabels: map[string]string{"env": "dev"},
-						},
 					},
 					Actions: []Action{
 						{
@@ -187,71 +154,7 @@ var _ = Describe("CounterMeasures webhook", func() {
 
 			err := k8sClient.Create(ctx, counterMeasure)
 			Expect(err).Should(HaveOccurred())
-			Ω(err.Error()).Should(Equal("admission webhook \"vcountermeasure.kb.io\" denied the request: prometheus event source is required"))
-		})
-
-		It("should fail if there a reference to a missing secret", func() {
-			counterMeasure := &CounterMeasure{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "countermeasure.vilaverde.rocks/v1alpha1",
-					Kind:       "CounterMeasure",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      CounterMeasureName,
-					Namespace: CounterMeasureNamespace,
-				},
-				Spec: CounterMeasureSpec{
-					OnEvent: OnEventSpec{
-						EventName: "CPUThrottlingHigh",
-						SourceSelector: metav1.LabelSelector{
-							MatchLabels: map[string]string{"env": "dev"},
-						},
-					},
-					Actions: []Action{
-						{
-							Debug: &DebugSpec{
-								Image: "busybox:latest",
-							},
-						},
-					},
-				},
-			}
-
-			err := k8sClient.Create(ctx, counterMeasure)
-			Expect(err).Should(HaveOccurred())
-			Ω(err.Error()).Should(Equal("admission webhook \"vcountermeasure.kb.io\" denied the request: secret 'secret' is not found in namespace 'ns'"))
-		})
-
-		It("should fail if there a reference to a missing p8s service", func() {
-			counterMeasure := &CounterMeasure{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "countermeasure.vilaverde.rocks/v1alpha1",
-					Kind:       "CounterMeasure",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      CounterMeasureName,
-					Namespace: CounterMeasureNamespace,
-				},
-				Spec: CounterMeasureSpec{
-					OnEvent: OnEventSpec{
-						EventName: "CPUThrottlingHigh",
-						SourceSelector: metav1.LabelSelector{
-							MatchLabels: map[string]string{"env": "dev"},
-						},
-					},
-					Actions: []Action{
-						{
-							Debug: &DebugSpec{
-								Image: "busybox:latest",
-							},
-						},
-					},
-				},
-			}
-
-			err := k8sClient.Create(ctx, counterMeasure)
-			Expect(err).Should(HaveOccurred())
-			Ω(err.Error()).Should(Equal("admission webhook \"vcountermeasure.kb.io\" denied the request: service 'prom-operated' is not found in namespace 'wrong-namespace'"))
+			Ω(err.Error()).Should(Equal("admission webhook \"vcountermeasure.kb.io\" denied the request: event name is required"))
 		})
 	})
 })

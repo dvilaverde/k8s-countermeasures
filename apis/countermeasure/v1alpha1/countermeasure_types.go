@@ -68,8 +68,8 @@ type SuppressionPolicySpec struct {
 
 // PrometheusAlertSpec definition of a monitored prometheus alert
 type OnEventSpec struct {
-	EventName      string               `json:"name"`
-	SourceSelector metav1.LabelSelector `json:"sourceSelector"`
+	EventName      string                `json:"name"`
+	SourceSelector *metav1.LabelSelector `json:"sourceSelector,omitempty"`
 
 	// Defines a policy for how to suppress alerts from triggering actions.
 	SuppressionPolicy *SuppressionPolicySpec `json:"suppressionPolicy,omitempty"`

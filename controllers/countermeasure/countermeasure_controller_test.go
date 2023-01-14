@@ -63,7 +63,7 @@ var _ = Describe("CounterMeasures controller", func() {
 				Spec: cmv1alpha1.CounterMeasureSpec{
 					OnEvent: cmv1alpha1.OnEventSpec{
 						EventName: "CPUThrottlingHigh",
-						SourceSelector: metav1.LabelSelector{
+						SourceSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{"env": "dev"},
 						},
 					},
