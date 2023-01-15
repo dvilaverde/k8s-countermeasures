@@ -10,7 +10,7 @@ import (
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

@@ -29,9 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/operator/actions"
-	"github.com/dvilaverde/k8s-countermeasures/operator/reconciler"
-	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/actions"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
 	"k8s.io/apimachinery/pkg/api/meta"
 )
 

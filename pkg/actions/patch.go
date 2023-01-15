@@ -6,7 +6,7 @@ import (
 	"text/template"
 
 	"github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/operator/events"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"

@@ -34,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/operator/reconciler"
-	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
 	//+kubebuilder:scaffold:imports
 )
 

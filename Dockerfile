@@ -15,7 +15,7 @@ RUN go mod download
 COPY main.go main.go
 COPY apis/ apis/
 COPY assets/ assets/
-COPY operator/ operator/
+COPY pkg/ pkg/
 COPY controllers/ controllers/
 
 # Build

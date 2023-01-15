@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/operator/events"
-	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"

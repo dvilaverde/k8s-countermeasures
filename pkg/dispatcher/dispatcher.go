@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dvilaverde/k8s-countermeasures/operator/events"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"github.com/go-logr/logr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"

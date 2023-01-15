@@ -38,8 +38,8 @@ import (
 	eventsourcev1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	countermeasure "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
 	eventsource "github.com/dvilaverde/k8s-countermeasures/controllers/eventsource"
-	"github.com/dvilaverde/k8s-countermeasures/operator/reconciler"
-	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
 	//+kubebuilder:scaffold:imports
 )
 

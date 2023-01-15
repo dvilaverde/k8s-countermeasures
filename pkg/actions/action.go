@@ -10,8 +10,8 @@ import (
 	"text/template"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/operator/events"
-	"github.com/dvilaverde/k8s-countermeasures/operator/metrics"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"

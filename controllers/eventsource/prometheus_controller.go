@@ -32,9 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/operator/reconciler"
-	"github.com/dvilaverde/k8s-countermeasures/operator/sources"
-	"github.com/dvilaverde/k8s-countermeasures/operator/sources/prometheus"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/sources/prometheus"
 )
 
 // PrometheusReconciler reconciles a Prometheus object
