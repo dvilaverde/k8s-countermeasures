@@ -30,15 +30,15 @@ import (
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/actions"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
 	"k8s.io/apimachinery/pkg/api/meta"
 )
 
 // CounterMeasureReconciler reconciles a CounterMeasure object
 type CounterMeasureReconciler struct {
 	reconciler.ReconcilerBase
-	EventManager   sources.EventManager
+	EventManager   manager.Manager[*v1alpha1.CounterMeasure]
 	actionRegistry actions.Registry
 	Log            logr.Logger
 }
@@ -75,7 +75,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			// stop reconciliation since the Operator Custom Resource was not found
 			logger.Info("CounterMeasure resource not found", "name", req.Name, "namespace", req.Namespace)
 			// Notify the monitoring service to stop monitoring the NamespaceName
-			r.EventManager.RemoveCounterMeasure(req.NamespacedName)
+			r.EventManager.Remove(req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
 
@@ -84,7 +84,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	if r.EventManager.CounterMeasureExists(counterMeasureCR.ObjectMeta) {
+	if r.EventManager.Exists(counterMeasureCR.ObjectMeta) {
 		return r.HandleSuccess(ctx, counterMeasureCR.ObjectMeta)
 	}
 
@@ -104,7 +104,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return r.HandleError(ctx, counterMeasureCR.ObjectMeta, err)
 	}
 
-	err = r.EventManager.AddCounterMeasure(counterMeasureCR)
+	err = r.EventManager.Add(counterMeasureCR)
 	if err != nil {
 		return r.HandleError(ctx, counterMeasureCR.ObjectMeta, err)
 	}

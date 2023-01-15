@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/sources/prometheus"
@@ -40,8 +41,8 @@ import (
 // PrometheusReconciler reconciles a Prometheus object
 type PrometheusReconciler struct {
 	reconciler.ReconcilerBase
-	eventManager sources.EventManager
-	Log          logr.Logger
+	SourceManager manager.Manager[sources.EventSource]
+	Log           logr.Logger
 }
 
 //+kubebuilder:rbac:groups=eventsource.vilaverde.rocks,resources=prometheuses,verbs=get;list;watch;create;update;patch;delete
@@ -56,16 +57,21 @@ type PrometheusReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *PrometheusReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logr := log.FromContext(ctx)
 
-	eventSourceCR := &v1alpha1.Prometheus{}
-	err := r.GetClient().Get(ctx, req.NamespacedName, eventSourceCR)
+	var (
+		err           error
+		logr          = log.FromContext(ctx)
+		eventSourceCR = &v1alpha1.Prometheus{}
+		sourceManager = r.SourceManager
+	)
+
+	err = r.GetClient().Get(ctx, req.NamespacedName, eventSourceCR)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logr.Info("Prometheus event source resource not found", "name", req.Name, "namespace", req.Namespace)
 
 			// Notify the monitoring service to stop monitoring the NamespaceName
-			err := r.eventManager.RemoveSource(req.NamespacedName)
+			err := sourceManager.Remove(req.NamespacedName)
 			return ctrl.Result{}, err
 		}
 
@@ -76,17 +82,19 @@ func (r *PrometheusReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// check for the existence of the event source, in case it's already added and running
 	// there is no need to re-install. This handles re-queues due to status changes.
-	installed := r.eventManager.SourceExists(eventSourceCR.ObjectMeta)
+	installed := sourceManager.Exists(eventSourceCR.ObjectMeta)
 	if !installed {
 		// install now that we've determined this event source needs to be added
 		client, err := r.createP8sClient(eventSourceCR)
 		if err != nil {
 			return r.HandleErrorAndRequeue(ctx, eventSourceCR.ObjectMeta, err, time.Duration(30*time.Second))
 		}
-		err = r.eventManager.AddSource(prometheus.NewEventSource(eventSourceCR, client))
+
+		err = sourceManager.Add(prometheus.NewEventSource(eventSourceCR, client))
+		return r.HandleOutcome(ctx, eventSourceCR.ObjectMeta, err)
 	}
 
-	return r.HandleOutcome(ctx, eventSourceCR.ObjectMeta, err)
+	return r.HandleSuccess(ctx, eventSourceCR.ObjectMeta)
 }
 
 // SetupWithManager sets up the controller with the Manager.

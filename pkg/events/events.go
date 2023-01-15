@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+type EventListener interface {
+	OnEvent(Event) error
+}
+
 type SourceName struct {
 	Name      string
 	Namespace string

@@ -7,7 +7,7 @@ import (
 
 	"github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
@@ -18,17 +18,17 @@ import (
 
 func TestEventSource_Key(t *testing.T) {
 	type fields struct {
-		key sources.ObjectKey
+		key manager.ObjectKey
 	}
 	tests := []struct {
 		name   string
 		fields fields
-		want   sources.ObjectKey
+		want   manager.ObjectKey
 	}{
 		{
 			name: "nskey",
 			fields: fields{
-				key: sources.ObjectKey{
+				key: manager.ObjectKey{
 					NamespacedName: types.NamespacedName{
 						Namespace: "ns",
 						Name:      "name",
@@ -36,7 +36,7 @@ func TestEventSource_Key(t *testing.T) {
 					Generation: 1,
 				},
 			},
-			want: sources.ObjectKey{
+			want: manager.ObjectKey{
 				NamespacedName: types.NamespacedName{
 					Namespace: "ns",
 					Name:      "name",
@@ -59,12 +59,12 @@ func TestEventSource_Key(t *testing.T) {
 
 func TestEventSource_Subscribe(t *testing.T) {
 	s := &EventSource{
-		subscribers: make([]sources.EventPublisher, 0),
+		subscribers: make([]events.EventPublisher, 0),
 	}
 
 	assert.Equal(t, 0, len(s.subscribers))
 
-	s.Subscribe(sources.EventPublisherFunc(func(events.Event) error {
+	s.Subscribe(events.EventPublisherFunc(func(events.Event) error {
 		return nil
 	}))
 
@@ -122,7 +122,7 @@ func TestEventSource_poll(t *testing.T) {
 	go eventsource.Start(done)
 
 	publishCh := make(chan events.Event)
-	eventsource.Subscribe(sources.EventPublisherFunc(func(e events.Event) error {
+	eventsource.Subscribe(events.EventPublisherFunc(func(e events.Event) error {
 		publishCh <- e
 		return nil
 	}))

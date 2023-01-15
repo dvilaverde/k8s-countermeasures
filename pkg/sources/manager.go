@@ -4,31 +4,33 @@ import (
 	"context"
 	"sync"
 
-	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/dispatcher"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
-	"github.com/go-logr/logr"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var _ EventManager = &Manager{}
+var _ manager.Manager[EventSource] = &Manager{}
+
+type ActiveEventSources map[manager.ObjectKey]EventSource
 
 type Manager struct {
-	logger   logr.Logger
 	client   client.Client
 	shutdown chan struct{}
-
-	publisher EventPublisher
 
 	sourcesMux sync.Mutex
 	sources    ActiveEventSources
 
-	measuresMux sync.Mutex
-	measures    ActiveCounterMeasures
+	// GlobalPublisher is used to publish any events
+	// over to the event manager, which will distribute further
+	// to all the receivers.
+	Dispatcher *dispatcher.Dispatcher
 }
 
-func (m *Manager) RemoveSource(name types.NamespacedName) error {
+func (m *Manager) Remove(name types.NamespacedName) error {
 	m.sourcesMux.Lock()
 	defer m.sourcesMux.Unlock()
 
@@ -41,8 +43,8 @@ func (m *Manager) RemoveSource(name types.NamespacedName) error {
 	return nil
 }
 
-func (m *Manager) SourceExists(objectMeta metav1.ObjectMeta) bool {
-	key := ObjectKey{
+func (m *Manager) Exists(objectMeta metav1.ObjectMeta) bool {
+	key := manager.ObjectKey{
 		NamespacedName: types.NamespacedName{Namespace: objectMeta.Namespace, Name: objectMeta.Name},
 		Generation:     objectMeta.Generation,
 	}
@@ -53,14 +55,14 @@ func (m *Manager) SourceExists(objectMeta metav1.ObjectMeta) bool {
 	return ok
 }
 
-func (m *Manager) AddSource(es EventSource) error {
+func (m *Manager) Add(es EventSource) error {
 	m.sourcesMux.Lock()
 	defer m.sourcesMux.Unlock()
 
 	key := es.Key()
 	m.sources[key] = es
 
-	es.Subscribe(EventPublisherFunc(func(event events.Event) error {
+	es.Subscribe(events.EventPublisherFunc(func(event events.Event) error {
 		if (event.Source == events.SourceName{}) {
 
 			// when there is an empty source lets populate it before propagating the event.
@@ -69,7 +71,7 @@ func (m *Manager) AddSource(es EventSource) error {
 				Namespace: key.Namespace,
 			}
 		}
-		return m.publisher.Publish(event)
+		return m.Dispatcher.EnqueueEvent(event)
 	}))
 	// place the event source on a goroutine so that it wont' block this method
 	go es.Start(m.shutdown)
@@ -77,54 +79,15 @@ func (m *Manager) AddSource(es EventSource) error {
 	return nil
 }
 
-// AddCounterMeasure install a countermeasure to route events to
-func (m *Manager) AddCounterMeasure(cm *v1alpha1.CounterMeasure) error {
-	return nil
-}
-
-// RemoveCounterMeasure uninstall a countermeasure from the event subscription
-func (m *Manager) RemoveCounterMeasure(name types.NamespacedName) error {
-	m.measuresMux.Lock()
-	defer m.measuresMux.Unlock()
-
-	for k := range m.measures {
-		if k.NamespacedName == name {
-			delete(m.measures, k)
-		}
-	}
-
-	return nil
-}
-
-// CounterMeasureExists uninstall a countermeasure from the event subscription
-func (m *Manager) CounterMeasureExists(objectName metav1.ObjectMeta) bool {
-	key := ObjectKey{
-		NamespacedName: types.NamespacedName{Namespace: objectName.Namespace, Name: objectName.Name},
-		Generation:     objectName.Generation,
-	}
-
-	m.measuresMux.Lock()
-	defer m.measuresMux.Unlock()
-
-	_, ok := m.measures[key]
-	return ok
-}
-
 // Start satisfies the runnable interface and started by the Operator SDK manager.
 func (m *Manager) Start(ctx context.Context) error {
-
-	m.logger.Info("starting event source manager")
+	logger := log.FromContext(ctx)
+	logger.Info("starting event source manager")
 
 	<-ctx.Done()
 
-	m.logger.Info("stopping event source manager")
+	logger.Info("stopping event source manager")
 	close(m.shutdown)
-	return nil
-}
-
-// InjectLogger injectable logger
-func (m *Manager) InjectLogger(logr logr.Logger) error {
-	m.logger = logr
 	return nil
 }
 

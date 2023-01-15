@@ -13,19 +13,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type EventListener interface {
-	OnEvent(events.Event) error
-}
-
 type Dispatcher struct {
 	logger        logr.Logger
-	eventListener EventListener
+	eventListener events.EventListener
 	workqueue     workqueue.RateLimitingInterface
 	workers       int
 }
 
 // NewDispatcher creates a new Dispatcher that uses multiple workers to dispatch events to an action listener
-func NewDispatcher(eventListener EventListener, workers int) *Dispatcher {
+func NewDispatcher(eventListener events.EventListener, workers int) *Dispatcher {
 	return &Dispatcher{
 		workers:       workers,
 		eventListener: eventListener,
