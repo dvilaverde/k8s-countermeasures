@@ -12,6 +12,12 @@ type EventListener interface {
 	OnEvent(Event) error
 }
 
+type OnEventFunc func(Event) error
+
+func (pub OnEventFunc) OnEvent(event Event) error {
+	return pub(event)
+}
+
 type SourceName struct {
 	Name      string
 	Namespace string

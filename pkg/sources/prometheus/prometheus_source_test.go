@@ -59,12 +59,12 @@ func TestEventSource_Key(t *testing.T) {
 
 func TestEventSource_Subscribe(t *testing.T) {
 	s := &EventSource{
-		subscribers: make([]events.EventPublisher, 0),
+		subscribers: make([]events.EventListener, 0),
 	}
 
 	assert.Equal(t, 0, len(s.subscribers))
 
-	s.Subscribe(events.EventPublisherFunc(func(events.Event) error {
+	s.Subscribe(events.OnEventFunc(func(events.Event) error {
 		return nil
 	}))
 
@@ -122,7 +122,7 @@ func TestEventSource_poll(t *testing.T) {
 	go eventsource.Start(done)
 
 	publishCh := make(chan events.Event)
-	eventsource.Subscribe(events.EventPublisherFunc(func(e events.Event) error {
+	eventsource.Subscribe(events.OnEventFunc(func(e events.Event) error {
 		publishCh <- e
 		return nil
 	}))

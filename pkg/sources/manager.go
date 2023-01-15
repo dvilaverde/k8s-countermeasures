@@ -62,7 +62,7 @@ func (m *Manager) Add(es EventSource) error {
 	key := es.Key()
 	m.sources[key] = es
 
-	es.Subscribe(events.EventPublisherFunc(func(event events.Event) error {
+	es.Subscribe(events.OnEventFunc(func(event events.Event) error {
 		if (event.Source == events.SourceName{}) {
 
 			// when there is an empty source lets populate it before propagating the event.

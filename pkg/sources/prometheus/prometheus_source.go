@@ -26,7 +26,7 @@ type EventSource struct {
 	pending  bool
 
 	subscriptionMux sync.Mutex
-	subscribers     []events.EventPublisher
+	subscribers     []events.EventListener
 }
 
 var _ sources.EventSource = &EventSource{}
@@ -66,7 +66,7 @@ func (d *EventSource) Key() manager.ObjectKey {
 	return d.key
 }
 
-func (d *EventSource) Subscribe(subscriber events.EventPublisher) error {
+func (d *EventSource) Subscribe(subscriber events.EventListener) error {
 	d.subscriptionMux.Lock()
 	defer d.subscriptionMux.Unlock()
 
@@ -104,7 +104,7 @@ func (d *EventSource) poll() {
 
 	for _, event := range eventsToPublish {
 		for _, subscriber := range d.subscribers {
-			subscriber.Publish(event)
+			subscriber.OnEvent(event)
 		}
 	}
 }

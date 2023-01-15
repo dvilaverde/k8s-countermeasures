@@ -8,5 +8,5 @@ import (
 type EventSource interface {
 	Key() manager.ObjectKey
 	Start(<-chan struct{}) error
-	Subscribe(events.EventPublisher) error
+	Subscribe(events.EventListener) error
 }
