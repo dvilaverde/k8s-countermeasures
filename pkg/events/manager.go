@@ -10,15 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-type EventPublisher interface {
-	Publish(Event) error
-}
-type EventPublisherFunc func(Event) error
-
-func (pub EventPublisherFunc) Publish(event Event) error {
-	return pub(event)
-}
-
 var _ manager.Manager[*v1alpha1.CounterMeasure] = &Manager{}
 var _ EventListener = &Manager{}
 
@@ -31,11 +22,13 @@ type Manager struct {
 
 // OnEvent called by the dispatcher when an event is received.
 func (m *Manager) OnEvent(event Event) error {
+	// TODO: needs implementation
 	return nil
 }
 
 // Add install a countermeasure to route events to
 func (m *Manager) Add(cm *v1alpha1.CounterMeasure) error {
+	// TODO: needs implementation
 	return nil
 }
 
