@@ -44,10 +44,7 @@ func (m *Manager) Remove(name types.NamespacedName) error {
 }
 
 func (m *Manager) Exists(objectMeta metav1.ObjectMeta) bool {
-	key := manager.ObjectKey{
-		NamespacedName: types.NamespacedName{Namespace: objectMeta.Namespace, Name: objectMeta.Name},
-		Generation:     objectMeta.Generation,
-	}
+	key := manager.ToKey(objectMeta)
 
 	m.sourcesMux.Lock()
 	defer m.sourcesMux.Unlock()
@@ -83,6 +80,12 @@ func (m *Manager) Add(es EventSource) error {
 func (m *Manager) Start(ctx context.Context) error {
 	logger := log.FromContext(ctx)
 	logger.Info("starting event source manager")
+
+	m.sourcesMux.Lock()
+	m.sources = make(ActiveEventSources)
+	m.sourcesMux.Unlock()
+
+	m.shutdown = make(chan struct{})
 
 	<-ctx.Done()
 

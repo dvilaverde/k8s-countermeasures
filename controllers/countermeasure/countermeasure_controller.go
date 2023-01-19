@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/actions"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -38,9 +37,8 @@ import (
 // CounterMeasureReconciler reconciles a CounterMeasure object
 type CounterMeasureReconciler struct {
 	reconciler.ReconcilerBase
-	EventManager   manager.Manager[*v1alpha1.CounterMeasure]
-	actionRegistry actions.Registry
-	Log            logr.Logger
+	ActionManager manager.Manager[*v1alpha1.CounterMeasure]
+	Log           logr.Logger
 }
 
 // Refer to the following URL for the K8s API groups:
@@ -75,7 +73,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			// stop reconciliation since the Operator Custom Resource was not found
 			logger.Info("CounterMeasure resource not found", "name", req.Name, "namespace", req.Namespace)
 			// Notify the monitoring service to stop monitoring the NamespaceName
-			r.EventManager.Remove(req.NamespacedName)
+			r.ActionManager.Remove(req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
 
@@ -84,7 +82,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	if r.EventManager.Exists(counterMeasureCR.ObjectMeta) {
+	if r.ActionManager.Exists(counterMeasureCR.ObjectMeta) {
 		return r.HandleSuccess(ctx, counterMeasureCR.ObjectMeta)
 	}
 
@@ -104,7 +102,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return r.HandleError(ctx, counterMeasureCR.ObjectMeta, err)
 	}
 
-	err = r.EventManager.Add(counterMeasureCR)
+	err = r.ActionManager.Add(counterMeasureCR)
 	if err != nil {
 		return r.HandleError(ctx, counterMeasureCR.ObjectMeta, err)
 	}
@@ -119,9 +117,6 @@ func (r *CounterMeasureReconciler) isValid(ctx context.Context, cm *v1alpha1.Cou
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CounterMeasureReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.actionRegistry = actions.Registry{}
-	r.actionRegistry.Initialize()
-
 	r.OnError = r.HandleErrorAndRequeue
 	r.OnSuccess = r.HandleSuccess
 

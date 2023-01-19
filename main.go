@@ -39,8 +39,8 @@ import (
 	eventsourcev1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	countermeasure "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
 	eventsource "github.com/dvilaverde/k8s-countermeasures/controllers/eventsource"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/actions"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/dispatcher"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
 	//+kubebuilder:scaffold:imports
@@ -133,17 +133,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	eventManager := &events.Manager{}
-
 	// dispatch will be started by the controller runtime and will receive events from an
-	// event source and dispatch them to the event manager which implements the listener
+	// event source and dispatch them to the action manager which implements the listener
 	// interface.
-	dispatcher := dispatcher.NewDispatcher(eventManager, rt.NumCPU())
+	actionManager := actions.NewFromManager(mgr)
+	dispatcher := dispatcher.NewDispatcher(actionManager, rt.NumCPU())
 	mgr.Add(dispatcher)
 
 	cmr := &countermeasure.CounterMeasureReconciler{
-		ReconcilerBase: reconciler.NewFromManager(mgr, mgr.GetEventRecorderFor("countermeasure_controller")),
-		EventManager:   eventManager,
+		ReconcilerBase: reconciler.NewFromManager(mgr),
+		ActionManager:  actionManager,
 		Log:            ctrl.Log.WithName("controllers").WithName("countermeasure"),
 	}
 	if err = (cmr).SetupWithManager(mgr); err != nil {
@@ -158,7 +157,7 @@ func main() {
 	// done channel in order to stop any running event sources.
 	mgr.Add(sourceManager)
 	if err = (&eventsource.PrometheusReconciler{
-		ReconcilerBase: reconciler.NewFromManager(mgr, mgr.GetEventRecorderFor("prometheus_controller")),
+		ReconcilerBase: reconciler.NewFromManager(mgr),
 		SourceManager:  sourceManager,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Prometheus")

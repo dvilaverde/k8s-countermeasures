@@ -42,7 +42,8 @@ func NewReconcilerBase(client client.Client, scheme *runtime.Scheme, restConfig 
 }
 
 // NewFromManager creates a new ReconcilerBase from a Manager
-func NewFromManager(mgr manager.Manager, recorder record.EventRecorder) ReconcilerBase {
+func NewFromManager(mgr manager.Manager) ReconcilerBase {
+	recorder := mgr.GetEventRecorderFor("countermeasure_controller")
 	return NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), recorder, mgr.GetAPIReader())
 }
 

@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
@@ -37,13 +36,7 @@ func NewEventSource(prometheus *v1alpha1.Prometheus, p8Client *PrometheusService
 	pending := prometheus.Spec.IncludePending
 
 	return &EventSource{
-		key: manager.ObjectKey{
-			NamespacedName: types.NamespacedName{
-				Namespace: prometheus.Namespace,
-				Name:      prometheus.Name,
-			},
-			Generation: prometheus.Generation,
-		},
+		key:      manager.ToKey(prometheus.ObjectMeta),
 		interval: interval.Duration,
 		pending:  pending,
 		p8Client: p8Client,

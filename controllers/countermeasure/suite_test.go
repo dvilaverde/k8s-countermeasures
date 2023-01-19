@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/actions"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
 	//+kubebuilder:scaffold:imports
 )
@@ -90,8 +90,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&CounterMeasureReconciler{
-		ReconcilerBase: reconciler.NewFromManager(k8sManager, k8sManager.GetEventRecorderFor("test")),
-		EventManager:   &events.Manager{},
+		ReconcilerBase: reconciler.NewFromManager(k8sManager),
+		ActionManager:  actions.NewFromManager(k8sManager),
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 

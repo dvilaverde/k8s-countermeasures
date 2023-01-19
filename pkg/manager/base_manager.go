@@ -19,3 +19,11 @@ type Manager[T any] interface {
 func (k ObjectKey) GetName() string {
 	return k.Namespace + "/" + k.Name
 }
+
+// ToKey convert ObjectMeta to an ObjectKey
+func ToKey(meta metav1.ObjectMeta) ObjectKey {
+	return ObjectKey{
+		NamespacedName: types.NamespacedName{Namespace: meta.Namespace, Name: meta.Name},
+		Generation:     meta.Generation,
+	}
+}
