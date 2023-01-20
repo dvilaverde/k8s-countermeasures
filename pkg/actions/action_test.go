@@ -25,7 +25,7 @@ func TestRegistry_Create(t *testing.T) {
 		},
 	}
 
-	action, err := reg.Create(ActionContext{}, spec, false)
+	action, err := reg.create(ActionContext{}, spec, false)
 	assert.NotNil(t, action)
 	assert.Nil(t, err)
 	assert.Equal(t, reflect.TypeOf(&Delete{}), reflect.TypeOf(action))

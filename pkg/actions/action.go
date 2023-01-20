@@ -33,7 +33,11 @@ type Action interface {
 	GetTargetObjectName(events.Event) string
 }
 
-type ActionHandlerSequence []Action
+type ActionRunner interface {
+	Run(ActionContext, events.Event)
+}
+
+type InMemoryRunner []Action
 
 type BaseAction struct {
 	DryRun bool
@@ -96,7 +100,7 @@ func (r *Registry) RegisterAction(prototype interface{}, builder ActionBuilder) 
 }
 
 // Create creates an implementation of an action defined in the Action spec
-func (r *Registry) Create(ctx ActionContext, action v1alpha1.Action, dryRun bool) (Action, error) {
+func (r *Registry) create(ctx ActionContext, action v1alpha1.Action, dryRun bool) (Action, error) {
 	reflectType := reflect.ValueOf(action)
 	for i := 0; i < reflectType.NumField(); i++ {
 		valueField := reflectType.Field(i)
@@ -112,20 +116,20 @@ func (r *Registry) Create(ctx ActionContext, action v1alpha1.Action, dryRun bool
 }
 
 // ConvertToHandler converts a countermeasure and all actions within into a handler for source events.
-func (r *Registry) NewRunner(ctx ActionContext) (ActionHandlerSequence, error) {
-	seq := make(ActionHandlerSequence, 0)
+func (r *Registry) NewRunner(ctx ActionContext) (ActionRunner, error) {
+	runner := make(InMemoryRunner, 0)
 
 	dryRun := ctx.CounterMeasure.Spec.DryRun
 	for _, action := range ctx.CounterMeasure.Spec.Actions {
-		actionImpl, err := r.Create(ctx, action, dryRun)
+		actionImpl, err := r.create(ctx, action, dryRun)
 		if err != nil {
 			return nil, err
 		}
 
-		seq = append(seq, actionImpl)
+		runner = append(runner, actionImpl)
 	}
 
-	return seq, nil
+	return runner, nil
 }
 
 // ObjectKeyFromTemplate create a client.ObjectKey from a namespace and name template.
@@ -143,44 +147,36 @@ func evaluateTemplate(templateString string, event events.Event) string {
 	return buf.String()
 }
 
-// OnDetection called when an alert condition is detected.
-func (seq ActionHandlerSequence) OnDetection(eventCtx ActionContext, event events.Event) <-chan struct{} {
+// Run called with an event when the counter measure actions need to be exeucted.
+func (seq InMemoryRunner) Run(eventCtx ActionContext, event events.Event) {
 
-	doneChannel := make(chan struct{})
+	cm := eventCtx.CounterMeasure
 
-	go func() {
-		defer close(doneChannel)
+	// create a struct that will be used as data for the templates in the custom resource
+	objectMeta := eventCtx.CounterMeasure.ObjectMeta
+	ctx := context.Background()
+	for _, action := range seq {
+		labels := prometheus.Labels{"namespace": objectMeta.Namespace, "type": action.GetType()}
+		ok, err := action.Perform(ctx, event)
 
-		cm := eventCtx.CounterMeasure
-
-		// create a struct that will be used as data for the templates in the custom resource
-		objectMeta := eventCtx.CounterMeasure.ObjectMeta
-		ctx := context.Background()
-		for _, action := range seq {
-			labels := prometheus.Labels{"namespace": objectMeta.Namespace, "type": action.GetType()}
-			ok, err := action.Perform(ctx, event)
-
-			// TODO: introduce some retrying logic here
-			if err != nil {
-				metrics.ActionErrors.With(labels).Add(1)
-				eventCtx.Recorder.Event(&cm, "Warning", "ActionError", err.Error())
-				log.Error(err, "action execution error", "name", objectMeta.Name, "namespace", objectMeta.Namespace)
-				break
-			}
-
-			if ok {
-				metrics.ActionsTaken.With(labels).Add(1)
-				msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
-					action.GetName(),
-					action.GetTargetObjectName(event))
-				if cm.Spec.DryRun {
-					msg = fmt.Sprintf("%s. DryRun=true", msg)
-				}
-
-				eventCtx.Recorder.Event(&cm, "Normal", "AlertFired", msg)
-			}
+		// TODO: introduce some retrying logic here
+		if err != nil {
+			metrics.ActionErrors.With(labels).Add(1)
+			eventCtx.Recorder.Event(&cm, "Warning", "ActionError", err.Error())
+			log.Error(err, "action execution error", "name", objectMeta.Name, "namespace", objectMeta.Namespace)
+			break
 		}
-	}()
 
-	return doneChannel
+		if ok {
+			metrics.ActionsTaken.With(labels).Add(1)
+			msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
+				action.GetName(),
+				action.GetTargetObjectName(event))
+			if cm.Spec.DryRun {
+				msg = fmt.Sprintf("%s. DryRun=true", msg)
+			}
+
+			eventCtx.Recorder.Event(&cm, "Normal", "ActionTaken", msg)
+		}
+	}
 }
