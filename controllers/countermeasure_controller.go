@@ -115,8 +115,10 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 func (r *CounterMeasureReconciler) isValid(ctx context.Context, cm *v1alpha1.CounterMeasure) (bool, error) {
-	err := v1alpha1.ValidateSpec(&cm.Spec)
-	return err == nil, err
+	// TODO: re-enable when the webClient is not nil
+	// err := v1alpha1.ValidateSpec(&cm.Spec)
+	// return err == nil, err
+	return true, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
