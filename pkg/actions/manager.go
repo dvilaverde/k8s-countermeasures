@@ -2,6 +2,8 @@ package actions
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	sourceV1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
@@ -54,7 +56,10 @@ func (m *Manager) OnEvent(event events.Event) error {
 
 	for _, countermeasureEntry := range measures {
 
-		// TODO: needs a filter here to prevent sending events from sources the CM is not subscribed to.
+		// check if the countermeasure is only accepting events from certain event sources.
+		if !countermeasureEntry.Accept(event) {
+			continue
+		}
 
 		// if this action is already running then prevent it from running again.
 		if countermeasureEntry.Running {
@@ -146,6 +151,7 @@ func (m *Manager) waitForCompletion(ctx ActionContext, event events.Event, runne
 		// this active set is used to prevent the same countermeasure from
 		// running concurrently.
 		m.state.SetRunning(manager.ToKey(ctx.CounterMeasure.ObjectMeta), false)
-	default:
+	case <-time.After(time.Hour):
+		managerLog.Error(errors.New("timed out waiting for action to complete"), "action timeout")
 	}
 }

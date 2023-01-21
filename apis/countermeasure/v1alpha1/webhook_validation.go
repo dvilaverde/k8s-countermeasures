@@ -8,7 +8,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var webhookClient client.Client
+var WebhookClient client.Client
 
 func ValidateSpec(spec *CounterMeasureSpec) error {
 

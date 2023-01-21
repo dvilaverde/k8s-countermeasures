@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,7 +85,10 @@ func TestActionState_AddSources(t *testing.T) {
 	state.Add(cm, []manager.ObjectKey{source})
 
 	assert.Equal(t, 1, len(state.counterMeasures[key].Sources))
-	assert.Equal(t, "sourceA", state.GetCounterMeasures("event1")[0].Sources[0].Name)
+
+	entry := state.GetCounterMeasures("event1")[0]
+	_, ok := entry.Sources[events.SourceName(source.NamespacedName)]
+	assert.True(t, ok)
 }
 
 func TestActionState_Remove(t *testing.T) {

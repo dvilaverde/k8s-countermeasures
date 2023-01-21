@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type EventListener interface {
@@ -18,10 +20,7 @@ func (pub OnEventFunc) OnEvent(event Event) error {
 	return pub(event)
 }
 
-type SourceName struct {
-	Name      string
-	Namespace string
-}
+type SourceName types.NamespacedName
 
 type EventData map[string]string
 

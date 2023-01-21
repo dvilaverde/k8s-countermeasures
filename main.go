@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	countermeasurev1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	eventsourcev1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	countermeasure "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
 	eventsource "github.com/dvilaverde/k8s-countermeasures/controllers/eventsource"
@@ -56,7 +56,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(countermeasurev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	utilruntime.Must(eventsourcev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
@@ -164,8 +164,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	v1alpha1.WebhookClient = mgr.GetClient()
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&countermeasurev1alpha1.CounterMeasure{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&v1alpha1.CounterMeasure{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CounterMeasure")
 			os.Exit(1)
 		}

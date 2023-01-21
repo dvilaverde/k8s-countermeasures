@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -12,8 +13,9 @@ type ActiveCounterMeasures map[manager.ObjectKey]*Entry
 type RunningSet map[manager.ObjectKey]struct{}
 
 type Entry struct {
-	Name           string
-	Sources        []manager.ObjectKey
+	Name string
+	// A set of sources that this counter measure will accept events from
+	Sources        map[events.SourceName]struct{}
 	Key            manager.ObjectKey
 	Countermeasure *v1alpha1.CounterMeasure
 	Running        bool
@@ -71,18 +73,24 @@ func (s *ActionState) Add(countermeasure *v1alpha1.CounterMeasure, sources []man
 		s.Remove(key.NamespacedName)
 	}
 
-	s.measuresMux.Lock()
-	defer s.measuresMux.Unlock()
-
 	onEvent := countermeasure.Spec.OnEvent
-	s.counterMeasures[key] = &Entry{
+	entry := &Entry{
 		Name:           onEvent.EventName,
-		Sources:        sources,
+		Sources:        make(map[events.SourceName]struct{}),
 		Key:            key,
 		Countermeasure: countermeasure,
 		Running:        false,
 	}
 
+	for _, source := range sources {
+		key := source.NamespacedName
+		entry.Sources[events.SourceName(key)] = struct{}{}
+	}
+
+	s.measuresMux.Lock()
+	defer s.measuresMux.Unlock()
+
+	s.counterMeasures[key] = entry
 	s.eventIndex[onEvent.EventName] = append(s.eventIndex[onEvent.EventName], key)
 
 	return nil
@@ -123,4 +131,16 @@ func (s *ActionState) GetCounterMeasures(eventName string) []Entry {
 	}
 
 	return entries
+}
+
+func (e Entry) Accept(event events.Event) bool {
+	var (
+		accept = e.Name == event.Name
+	)
+
+	if e.Sources != nil && len(e.Sources) > 0 {
+		_, accept = e.Sources[event.Source]
+	}
+
+	return accept
 }
