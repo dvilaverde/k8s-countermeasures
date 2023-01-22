@@ -86,7 +86,7 @@ const (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Polling Interval",type=integer,JSONPath=`.spec.pollingInterval`
+// +kubebuilder:printcolumn:name="Polling Interval",type=string,JSONPath=`.spec.pollingInterval`
 // +kubebuilder:printcolumn:name="Include Pending",type=boolean,JSONPath=`.spec.includePending`
 // +kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.state`
 // +kubebuilder:resource:shortName=pes

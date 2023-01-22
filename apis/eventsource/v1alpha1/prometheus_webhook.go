@@ -64,13 +64,13 @@ var _ webhook.Validator = &Prometheus{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *Prometheus) ValidateCreate() error {
 	prometheuslog.Info("validate create", "name", r.Name)
-	return ValidatePrometheus(r.Spec)
+	return ValidatePrometheus(r)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *Prometheus) ValidateUpdate(old runtime.Object) error {
 	prometheuslog.Info("validate update", "name", r.Name)
-	return ValidatePrometheus(r.Spec)
+	return ValidatePrometheus(r)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -78,7 +78,8 @@ func (r *Prometheus) ValidateDelete() error {
 	return nil
 }
 
-func ValidatePrometheus(p PrometheusSpec) error {
+func ValidatePrometheus(r *Prometheus) error {
+	p := r.Spec
 	if (p.Service == ServiceReference{}) {
 		return fmt.Errorf("service reference is required")
 	}
@@ -94,7 +95,14 @@ func ValidatePrometheus(p PrometheusSpec) error {
 	if p.Auth != nil {
 		secretRef := p.Auth.SecretReference
 		secret := &corev1.Secret{}
-		secretName := types.NamespacedName{Namespace: secretRef.Namespace, Name: secretRef.Name}
+
+		// use the namespace of the event p8s source when none provided for the secret.
+		namespace := secretRef.Namespace
+		if len(namespace) == 0 {
+			namespace = r.Namespace
+		}
+
+		secretName := types.NamespacedName{Namespace: namespace, Name: secretRef.Name}
 		if err := webhookClient.Get(context.Background(), secretName, secret); err != nil {
 			if errors.IsNotFound(err) {
 				return fmt.Errorf("secret '%s' is not found in namespace '%s'", secretRef.Name, secretRef.Namespace)

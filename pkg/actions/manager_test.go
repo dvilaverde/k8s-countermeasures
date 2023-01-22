@@ -40,6 +40,10 @@ func TestManager_OnEvent(t *testing.T) {
 
 		return !e.Running
 	}, time.Second*5, time.Millisecond*500, "expected the action to complete")
+
+	// TODO: more testing around the action execution and the done channel
+
+	// TODO: implement and add testing around suppression of duplicate events
 }
 
 func TestManager_Add(t *testing.T) {
@@ -92,7 +96,7 @@ func Deploy(t *testing.T) *Manager {
 		client:         k8sClient,
 		restConfig:     nil,
 		recorder:       nil,
-		state:          *state.NewState(),
+		state:          state.NewState(),
 		ActionRegistry: actionRegistry,
 	}
 	managerLog = testr.New(t)

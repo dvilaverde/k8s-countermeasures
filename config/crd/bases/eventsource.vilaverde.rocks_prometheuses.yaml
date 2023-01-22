@@ -20,7 +20,7 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .spec.pollingInterval
       name: Polling Interval
-      type: integer
+      type: string
     - jsonPath: .spec.includePending
       name: Include Pending
       type: boolean

@@ -99,6 +99,9 @@ func (r *PrometheusReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PrometheusReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.OnError = r.HandleErrorAndRequeue
+	r.OnSuccess = r.HandleSuccess
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Prometheus{}).
 		Complete(r)

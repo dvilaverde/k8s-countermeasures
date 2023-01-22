@@ -30,7 +30,7 @@ type Manager struct {
 	restConfig *rest.Config
 	recorder   record.EventRecorder
 
-	state state.ActionState
+	state *state.ActionState
 
 	ActionRegistry Registry
 }
@@ -45,7 +45,7 @@ func NewFromManager(mgr controller.Manager) *Manager {
 		restConfig:     mgr.GetConfig(),
 		recorder:       mgr.GetEventRecorderFor("action_manager"),
 		ActionRegistry: actionRegistry,
-		state:          state.ActionState{},
+		state:          state.NewState(),
 	}
 }
 
@@ -62,8 +62,8 @@ func (m *Manager) OnEvent(event events.Event) error {
 		}
 
 		// if this action is already running then prevent it from running again.
-		if countermeasureEntry.Running {
-			m.recorder.Event(countermeasureEntry.Countermeasure, "Normal", "Skipping", "Previous execution is still in progress.")
+		if countermeasureEntry.IsSuppressed(event) {
+			m.recorder.Event(countermeasureEntry.Countermeasure, "Normal", "Skipping", "Previous execution is still in progress or suppressed.")
 			continue
 		}
 
@@ -79,8 +79,7 @@ func (m *Manager) OnEvent(event events.Event) error {
 			return err
 		}
 
-		// TODO: handle suppression of duplicate events
-		m.state.SetRunning(countermeasureEntry.Key, true)
+		m.state.CounterMeasureStart(event, countermeasureEntry.Key)
 		go m.waitForCompletion(actionContext, event, actionRunner)
 	}
 
@@ -150,7 +149,7 @@ func (m *Manager) waitForCompletion(ctx ActionContext, event events.Event, runne
 		// remove this from the active set, when the channel is closed
 		// this active set is used to prevent the same countermeasure from
 		// running concurrently.
-		m.state.SetRunning(manager.ToKey(ctx.CounterMeasure.ObjectMeta), false)
+		m.state.CounterMeasureEnd(event, manager.ToKey(ctx.CounterMeasure.ObjectMeta))
 	case <-time.After(time.Hour):
 		managerLog.Error(errors.New("timed out waiting for action to complete"), "action timeout")
 	}

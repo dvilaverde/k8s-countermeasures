@@ -1,3 +1,7 @@
+#################################################
+# Deploys an EventSource for Prometheus in the 
+# cluster using a Service Reference
+#################################################
 apiVersion: eventsource.vilaverde.rocks/v1alpha1
 kind: Prometheus
 metadata:
@@ -6,11 +10,8 @@ metadata:
     app.kubernetes.io/name: p8s-source
     app.kubernetes.io/instance: dev
 spec:
-  serviceRef:
+  service:
     name: prometheus-operated
     namespace: monitoring
-  auth:
-    secretRef:
-      name: p8s-basic-auth
   includePending: false
-  pollingInterval: 30s
+  pollingInterval: 10s
