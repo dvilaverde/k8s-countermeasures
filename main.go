@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -43,14 +44,16 @@ import (
 	"github.com/dvilaverde/k8s-countermeasures/pkg/dispatcher"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
+	"github.com/operator-framework/operator-lib/leader"
 	//+kubebuilder:scaffold:imports
 )
 
 const watchNamespaceEnvVar = "WATCH_NAMESPACE"
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme         = runtime.NewScheme()
+	setupLog       = ctrl.Log.WithName("setup")
+	ErrNoNamespace = fmt.Errorf("namespace not found for current environment")
 )
 
 func init() {
@@ -78,20 +81,25 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	// TODO: re-enable
-	// if !enableLeaderElection {
-	// 	err := leader.Become(context.Background(), "countermeasure-op-lock")
-	// 	if err != nil {
-	// 		setupLog.Error(err, "unable to acquire leader lock")
-
-	// 		os.Exit(21)
-	// 	}
-	// }
-
 	watchNamespace, err := getWatchNamespace()
 	if err != nil {
 		setupLog.Error(err, `unable to get WatchNamespace, 
 			the manager will watch and manage resources in all namespaces`)
+	}
+
+	// make our Operator configurable so that users can decide between
+	// 'leader-with-lease' and 'leader-for-life' election strategies
+	if !enableLeaderElection {
+		err = leader.Become(context.Background(), "countermeasure-op-lock")
+		if err != nil {
+			// this error occurs when running locally under a debugger but since
+			// ErrNoNamespace exists in the internal utils package we're checking
+			// for the message instead of using errors.Is(ErrNoNamespace)
+			if err.Error() != ErrNoNamespace.Error() {
+				setupLog.Error(err, "unable to acquire leader lock")
+				os.Exit(21)
+			}
+		}
 	}
 
 	managerOptions := ctrl.Options{

@@ -45,11 +45,11 @@ func (p *Patch) GetTargetObjectName(event events.Event) string {
 }
 
 // Perform will apply the patch to the object
-func (p *Patch) Perform(ctx context.Context, event events.Event) (bool, error) {
+func (p *Patch) Perform(ctx context.Context, event events.Event) error {
 
 	gvk, err := p.spec.TargetObjectRef.ToGroupVersionKind()
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	object := &unstructured.Unstructured{}
@@ -58,9 +58,8 @@ func (p *Patch) Perform(ctx context.Context, event events.Event) (bool, error) {
 	target := p.spec.TargetObjectRef
 	objectName := ObjectKeyFromTemplate(target.Namespace, target.Name, event)
 
-	err = p.client.Get(ctx, objectName, object)
-	if err != nil {
-		return false, err
+	if err = p.client.Get(ctx, objectName, object); err != nil {
+		return err
 	}
 
 	patch, err := p.createPatch(PatchData{
@@ -69,7 +68,7 @@ func (p *Patch) Perform(ctx context.Context, event events.Event) (bool, error) {
 	})
 
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	opts := make([]client.PatchOption, 0)
@@ -78,7 +77,7 @@ func (p *Patch) Perform(ctx context.Context, event events.Event) (bool, error) {
 	}
 
 	err = p.client.Patch(ctx, object, patch, opts...)
-	return err == nil, err
+	return err
 }
 
 func (p *Patch) createPatch(data PatchData) (client.Patch, error) {

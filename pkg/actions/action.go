@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,10 +28,11 @@ type Registry struct {
 }
 
 type Action interface {
-	Perform(context.Context, events.Event) (bool, error)
+	Perform(context.Context, events.Event) error
 	GetName() string
 	GetType() string
 	GetTargetObjectName(events.Event) string
+	SupportsRetry() bool
 }
 
 type ActionRunner interface {
@@ -40,9 +42,10 @@ type ActionRunner interface {
 type InMemoryRunner []Action
 
 type BaseAction struct {
-	DryRun bool
-	Name   string
-	client client.Client
+	DryRun       bool
+	RetryEnabled bool
+	Name         string
+	client       client.Client
 }
 
 type ActionContext struct {
@@ -53,8 +56,21 @@ type ActionContext struct {
 }
 type ActionBuilder func(v1alpha1.Action, ActionContext, bool) Action
 
+func NewBase(c client.Client, spec v1alpha1.Action, dryRun bool) BaseAction {
+	return BaseAction{
+		client:       c,
+		Name:         spec.Name,
+		DryRun:       dryRun,
+		RetryEnabled: spec.RetryEnabled,
+	}
+}
+
 func (b *BaseAction) GetName() string {
 	return b.Name
+}
+
+func (b *BaseAction) SupportsRetry() bool {
+	return b.RetryEnabled
 }
 
 // createObjectName evaluate the template (if any) in name and namespace to produce an object name.
@@ -67,7 +83,7 @@ func (b *BaseAction) createObjectName(kind, namespace, name string, data events.
 // Initialize registers all the known actions with the registry
 func (r *Registry) Initialize() {
 	r.RegisterAction(v1alpha1.DeleteSpec{}, func(spec v1alpha1.Action, c ActionContext, dryRun bool) Action {
-		return NewDeleteFromBase(BaseAction{client: c.Client, DryRun: dryRun, Name: spec.Name}, *spec.Delete)
+		return NewDeleteFromBase(NewBase(c.Client, spec, dryRun), *spec.Delete)
 	})
 
 	r.RegisterAction(v1alpha1.DebugSpec{}, func(spec v1alpha1.Action, c ActionContext, dryRun bool) Action {
@@ -76,16 +92,16 @@ func (r *Registry) Initialize() {
 			utilruntime.HandleError(err)
 			panic(fmt.Errorf("not able to create a k8s config for the debug action: %w", err))
 		} else {
-			return NewDebugFromBase(BaseAction{client: c.Client, DryRun: dryRun, Name: spec.Name}, cs.CoreV1(), *spec.Debug)
+			return NewDebugFromBase(NewBase(c.Client, spec, dryRun), cs.CoreV1(), *spec.Debug)
 		}
 	})
 
 	r.RegisterAction(v1alpha1.PatchSpec{}, func(spec v1alpha1.Action, c ActionContext, dryRun bool) Action {
-		return NewPatchFromBase(BaseAction{client: c.Client, DryRun: dryRun, Name: spec.Name}, *spec.Patch)
+		return NewPatchFromBase(NewBase(c.Client, spec, dryRun), *spec.Patch)
 	})
 
 	r.RegisterAction(v1alpha1.RestartSpec{}, func(spec v1alpha1.Action, c ActionContext, dryRun bool) Action {
-		return NewRestartFromBase(BaseAction{client: c.Client, DryRun: dryRun, Name: spec.Name}, *spec.Restart)
+		return NewRestartFromBase(NewBase(c.Client, spec, dryRun), *spec.Restart)
 	})
 }
 
@@ -157,9 +173,13 @@ func (seq InMemoryRunner) Run(eventCtx ActionContext, event events.Event) {
 	ctx := context.Background()
 	for _, action := range seq {
 		labels := prometheus.Labels{"namespace": objectMeta.Namespace, "type": action.GetType()}
-		ok, err := action.Perform(ctx, event)
 
-		// TODO: introduce some retrying logic here
+		// Ideally actions are idempotent as retry on error is the default behavior,
+		// but the action spec allows for retries to be disabled.
+		err := retry.OnError(retry.DefaultBackoff, func(err error) bool { return true }, func() error {
+			return action.Perform(ctx, event)
+		})
+
 		if err != nil {
 			metrics.ActionErrors.With(labels).Add(1)
 			eventCtx.Recorder.Event(&cm, "Warning", "ActionError", err.Error())
@@ -167,16 +187,14 @@ func (seq InMemoryRunner) Run(eventCtx ActionContext, event events.Event) {
 			break
 		}
 
-		if ok {
-			metrics.ActionsTaken.With(labels).Add(1)
-			msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
-				action.GetName(),
-				action.GetTargetObjectName(event))
-			if cm.Spec.DryRun {
-				msg = fmt.Sprintf("%s. DryRun=true", msg)
-			}
-
-			eventCtx.Recorder.Event(&cm, "Normal", "ActionTaken", msg)
+		metrics.ActionsTaken.With(labels).Add(1)
+		msg := fmt.Sprintf("Alert detected, action '%s' taken on %s",
+			action.GetName(),
+			action.GetTargetObjectName(event))
+		if cm.Spec.DryRun {
+			msg = fmt.Sprintf("%s. DryRun=true", msg)
 		}
+
+		eventCtx.Recorder.Event(&cm, "Normal", "ActionTaken", msg)
 	}
 }

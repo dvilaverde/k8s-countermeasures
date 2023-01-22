@@ -1,7 +1,8 @@
 package actions
 
 import (
-	"fmt"
+	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,11 +15,25 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestManager_OnEvent(t *testing.T) {
-	manager := Deploy(t)
+	recordedEvents := make([]string, 0)
+	manager, eventsCh := Deploy(t)
+
+	go func() {
+		for s := range eventsCh {
+			recordedEvents = append(recordedEvents, s)
+		}
+	}()
+
+	mockAction := &MockAction{}
+
+	manager.ActionRegistry.RegisterAction(v1alpha1.RestartSpec{}, func(spec v1alpha1.Action, c ActionContext, dryRun bool) Action {
+		return mockAction
+	})
 
 	e := events.Event{
 		Name: "event2",
@@ -34,21 +49,22 @@ func TestManager_OnEvent(t *testing.T) {
 
 	manager.OnEvent(e)
 	assert.Eventually(t, func() bool {
-
 		e := manager.state.GetCounterMeasures("event2")[0]
-		println(fmt.Sprintf("Running: %v", e.Running))
-
 		return !e.Running
 	}, time.Second*5, time.Millisecond*500, "expected the action to complete")
 
-	// TODO: more testing around the action execution and the done channel
+	assert.Equal(t, 1, len(recordedEvents))
 
-	// TODO: implement and add testing around suppression of duplicate events
+	// if we fire the event again it should not fire due to the suppression policy
+	manager.OnEvent(e)
+	assert.Eventually(t, func() bool {
+		return strings.Contains(recordedEvents[1], "Skipping")
+	}, time.Second*5, time.Millisecond*500, "expected there to be a suppress event")
 }
 
 func TestManager_Add(t *testing.T) {
 
-	manager := Deploy(t)
+	manager, _ := Deploy(t)
 
 	assert.True(t, manager.Exists(CreateObjectMeta("all-events")))
 	entry := manager.state.GetCounterMeasures("event1")[0]
@@ -60,7 +76,7 @@ func TestManager_Add(t *testing.T) {
 }
 
 func TestManager_Remove(t *testing.T) {
-	manager := Deploy(t)
+	manager, _ := Deploy(t)
 	assert.True(t, manager.Exists(CreateObjectMeta("all-events")))
 	err := manager.Remove(types.NamespacedName{Namespace: "ns", Name: "all-events"})
 	assert.NoError(t, err)
@@ -68,13 +84,14 @@ func TestManager_Remove(t *testing.T) {
 }
 
 func TestManager_Exists(t *testing.T) {
-	manager := Deploy(t)
+	manager, _ := Deploy(t)
 	assert.True(t, manager.Exists(CreateObjectMeta("all-events")))
 }
 
-func Deploy(t *testing.T) *Manager {
+func Deploy(t *testing.T) (*Manager, <-chan string) {
 	actionRegistry := Registry{}
-	actionRegistry.Initialize()
+	// purposely not initializing the action registry so that the callsers of Deploy
+	// can add mock actions
 
 	es := &esV1alpha1.Prometheus{
 		TypeMeta: v1.TypeMeta{
@@ -92,10 +109,12 @@ func Deploy(t *testing.T) *Manager {
 		WithRuntimeObjects(objs...).
 		Build()
 
+	recorder := record.NewFakeRecorder(100)
+
 	manager := &Manager{
 		client:         k8sClient,
 		restConfig:     nil,
-		recorder:       nil,
+		recorder:       recorder,
 		state:          state.NewState(),
 		ActionRegistry: actionRegistry,
 	}
@@ -126,15 +145,32 @@ func Deploy(t *testing.T) *Manager {
 		Spec: v1alpha1.CounterMeasureSpec{
 			OnEvent: v1alpha1.OnEventSpec{
 				EventName: "event2",
+				SuppressionPolicy: &v1alpha1.SuppressionPolicySpec{
+					Duration: &v1.Duration{
+						Duration: time.Second * 10,
+					},
+				},
 				SourceSelector: &v1.LabelSelector{
 					MatchLabels: map[string]string{"app": "test"},
+				},
+			},
+			Actions: []v1alpha1.Action{
+				{
+					Name:         "test",
+					RetryEnabled: false,
+					Restart: &v1alpha1.RestartSpec{
+						DeploymentRef: v1alpha1.DeploymentReference{
+							Namespace: "ns",
+							Name:      "name",
+						},
+					},
 				},
 			},
 		},
 	}
 	manager.Add(cm)
 
-	return manager
+	return manager, recorder.Events
 }
 
 func CreateObjectMeta(name string) v1.ObjectMeta {
@@ -146,4 +182,27 @@ func CreateObjectMeta(name string) v1.ObjectMeta {
 	}
 
 	return meta
+}
+
+type MockAction struct {
+}
+
+func (mock *MockAction) Perform(context.Context, events.Event) error {
+	return nil
+}
+
+func (mock *MockAction) GetName() string {
+	return "mock"
+}
+
+func (mock *MockAction) GetType() string {
+	return "mock"
+}
+
+func (mock *MockAction) GetTargetObjectName(events.Event) string {
+	return "mock"
+}
+
+func (mock *MockAction) SupportsRetry() bool {
+	return false
 }

@@ -113,6 +113,8 @@ func (o *ObjectReference) ToGroupVersionKind() (schema.GroupVersionKind, error) 
 // Action defines an action to be taken when the event source detects a condition that needs attention.
 type Action struct {
 	Name string `json:"name"`
+	// +kubebuilder:default=true
+	RetryEnabled bool `json:"retryEnabled"`
 
 	// TODO: Add the following low-level operations:
 	// Create *CreateSpec `json:"create,omitempty"`

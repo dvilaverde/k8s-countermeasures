@@ -42,7 +42,9 @@ var _ webhook.Defaulter = &CounterMeasure{}
 func (r *CounterMeasure) Default() {
 	countermeasurelog.Info("default", "name", r.Name)
 
-	// TODO: fill in your defaulting logic.
+	for _, action := range r.Spec.Actions {
+		action.RetryEnabled = true
+	}
 }
 
 //+kubebuilder:webhook:path=/validate-countermeasure-vilaverde-rocks-v1alpha1-countermeasure,mutating=false,failurePolicy=fail,sideEffects=None,groups=countermeasure.vilaverde.rocks,resources=countermeasures,verbs=create;update,versions=v1alpha1,name=vcountermeasure.kb.io,admissionReviewVersions=v1

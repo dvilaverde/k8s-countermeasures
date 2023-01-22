@@ -173,8 +173,12 @@ spec:
                       required:
                       - deploymentRef
                       type: object
+                    retryEnabled:
+                      default: true
+                      type: boolean
                   required:
                   - name
+                  - retryEnabled
                   type: object
                 type: array
               dryRun:

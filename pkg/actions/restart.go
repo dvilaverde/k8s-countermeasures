@@ -39,7 +39,7 @@ func (r *Restart) GetTargetObjectName(event events.Event) string {
 }
 
 // Perform will apply the restart patch to the deployment
-func (r *Restart) Perform(ctx context.Context, event events.Event) (bool, error) {
+func (r *Restart) Perform(ctx context.Context, event events.Event) error {
 	object := &unstructured.Unstructured{}
 
 	gvk := schema.GroupVersionKind{
@@ -65,5 +65,5 @@ func (r *Restart) Perform(ctx context.Context, event events.Event) (bool, error)
 		err = r.client.Patch(ctx, object, patch, opts...)
 	}
 
-	return true, err
+	return err
 }

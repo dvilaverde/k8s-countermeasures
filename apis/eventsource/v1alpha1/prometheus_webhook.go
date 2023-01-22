@@ -19,9 +19,11 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -54,6 +56,11 @@ var _ webhook.Defaulter = &Prometheus{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Prometheus) Default() {
 	prometheuslog.Info("default", "name", r.Name)
+
+	r.Spec.IncludePending = false
+	r.Spec.PollingInterval = v1.Duration{
+		Duration: time.Second * 15,
+	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
