@@ -1,17 +1,4 @@
 #################################################
-# Example Secret of basic-auth type
-#################################################
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: p8s-basic-auth
-type: kubernetes.io/basic-auth
-data:
-  key1: c3VwZXJzZWNyZXQ=
-  key2: dG9wc2VjcmV0
----
-#################################################
 # Deploys an EventSource for Prometheus in the 
 # cluster using a Service Reference using 
 # a Secret Reference for BasicAuth
