@@ -70,13 +70,13 @@ func (d *EventSource) Subscribe(subscriber events.EventListener) error {
 
 // poll fetch alerts from each prometheus service and notify the callbacks on any active alerts
 func (d *EventSource) poll() {
+	d.subscriptionMux.Lock()
+	defer d.subscriptionMux.Unlock()
+
 	// don't bother when there are no subscribers
 	if len(d.subscribers) == 0 {
 		return
 	}
-
-	d.subscriptionMux.Lock()
-	defer d.subscriptionMux.Unlock()
 
 	alerts, err := d.p8Client.GetActiveAlerts()
 	if err != nil {

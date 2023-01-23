@@ -3,6 +3,7 @@ package dispatcher
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,12 +13,16 @@ import (
 )
 
 type MockListener struct {
+	eventsMux     sync.Mutex
 	events        []events.Event
 	counter       int
 	errorAttempts int
 }
 
 func (l *MockListener) OnEvent(event events.Event) error {
+	l.eventsMux.Lock()
+	defer l.eventsMux.Unlock()
+
 	l.counter++
 	if l.errorAttempts > 0 && l.counter < l.errorAttempts {
 		return fmt.Errorf("mocking error")
@@ -48,10 +53,14 @@ func TestDispatcher_Dispatch(t *testing.T) {
 
 	dispatcher.EnqueueEvent(e1)
 	assert.Eventually(t, func() bool {
+		listener.eventsMux.Lock()
+		defer listener.eventsMux.Unlock()
 		return len(listener.events) == 1
 	}, time.Second*5, time.Millisecond*50, "expected the event to be dequeued")
 
+	listener.eventsMux.Lock()
 	event := listener.events[0]
+	listener.eventsMux.Unlock()
 	assert.Equal(t, e1.Name, event.Name)
 	assert.Equal(t, e1.ActiveTime, event.ActiveTime)
 	assert.Equal(t, 1, len(*event.Data))
@@ -84,10 +93,14 @@ func TestDispatcher_DispatchRetry(t *testing.T) {
 	// add an invalid item to the queue to make sure the dispatcher ignores it
 	dispatcher.workqueue.Add("should throw this out")
 	assert.Eventually(t, func() bool {
+		listener.eventsMux.Lock()
+		defer listener.eventsMux.Unlock()
 		return len(listener.events) == 1
 	}, time.Second*5, time.Millisecond*50, "expected the event to be dequeued")
 
+	listener.eventsMux.Lock()
 	event := listener.events[0]
+	listener.eventsMux.Unlock()
 	assert.Equal(t, e1.Name, event.Name)
 	assert.Equal(t, e1.ActiveTime, event.ActiveTime)
 	assert.Equal(t, 1, len(*event.Data))
@@ -117,8 +130,12 @@ func TestDispatcher_DispatchError(t *testing.T) {
 
 	dispatcher.EnqueueEvent(e1)
 	assert.Never(t, func() bool {
+		listener.eventsMux.Lock()
+		defer listener.eventsMux.Unlock()
 		return len(listener.events) >= 1
 	}, time.Second*2, time.Millisecond*50, "expected the event to not be propagated to the listener")
 
+	listener.eventsMux.Lock()
 	assert.GreaterOrEqual(t, listener.counter, 1)
+	listener.eventsMux.Unlock()
 }

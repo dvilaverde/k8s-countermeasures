@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,12 +21,15 @@ import (
 )
 
 func TestManager_OnEvent(t *testing.T) {
+	eventsMux := sync.Mutex{}
 	recordedEvents := make([]string, 0)
 	manager, eventsCh := Deploy(t)
 
 	go func() {
 		for s := range eventsCh {
+			eventsMux.Lock()
 			recordedEvents = append(recordedEvents, s)
+			eventsMux.Unlock()
 		}
 	}()
 
@@ -53,11 +57,15 @@ func TestManager_OnEvent(t *testing.T) {
 		return !e.Running
 	}, time.Second*5, time.Millisecond*500, "expected the action to complete")
 
+	eventsMux.Lock()
 	assert.Equal(t, 1, len(recordedEvents))
+	eventsMux.Unlock()
 
 	// if we fire the event again it should not fire due to the suppression policy
 	manager.OnEvent(e)
 	assert.Eventually(t, func() bool {
+		eventsMux.Lock()
+		defer eventsMux.Unlock()
 		return strings.Contains(recordedEvents[1], "Skipping")
 	}, time.Second*5, time.Millisecond*500, "expected there to be a suppress event")
 }

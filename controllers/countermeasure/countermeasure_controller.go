@@ -194,7 +194,7 @@ func (r *CounterMeasureReconciler) HandleErrorAndRequeue(ctx context.Context, ob
 		cm.Status.LastStatusChangeTime = &metav1.Time{Time: time.Now()}
 
 		err = r.GetClient().Status().Update(ctx, cm)
-		if err == nil {
+		if err != nil {
 			r.GetRecorder().Event(cm, "Warning", "ProcessingError", err.Error())
 		}
 		return err

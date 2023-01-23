@@ -83,9 +83,8 @@ func (m *Manager) Start(ctx context.Context) error {
 
 	m.sourcesMux.Lock()
 	m.sources = make(ActiveEventSources)
-	m.sourcesMux.Unlock()
-
 	m.shutdown = make(chan struct{})
+	m.sourcesMux.Unlock()
 
 	<-ctx.Done()
 

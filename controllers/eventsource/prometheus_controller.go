@@ -174,7 +174,7 @@ func (r *PrometheusReconciler) HandleErrorAndRequeue(ctx context.Context, object
 
 		eventSourceCR.Status.State = v1alpha1.Error
 		err = r.GetClient().Status().Update(ctx, eventSourceCR)
-		if err == nil {
+		if err != nil {
 			r.GetRecorder().Event(eventSourceCR, "Warning", "ProcessingError", err.Error())
 		}
 

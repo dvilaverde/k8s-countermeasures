@@ -59,6 +59,8 @@ func getManager(t *testing.T) *Manager {
 	go mgr.Start(ctx)
 
 	assert.Eventually(t, func() bool {
+		mgr.sourcesMux.Lock()
+		defer mgr.sourcesMux.Unlock()
 		return mgr.sources != nil
 	}, time.Second, time.Millisecond*10, "expecting that the sources map to be initialized")
 
