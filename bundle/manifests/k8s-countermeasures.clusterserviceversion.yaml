@@ -39,14 +39,13 @@ metadata:
                 "name": "debug-pod"
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404"
-              },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
+                }
               }
             }
           }
@@ -78,14 +77,13 @@ metadata:
                 "name": "delete-pod"
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404"
-              },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
+                }
               }
             }
           }
@@ -119,14 +117,13 @@ metadata:
                 }
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404"
-              },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
+                }
               }
             }
           }
@@ -160,14 +157,13 @@ metadata:
                 }
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404"
-              },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
+                }
               }
             }
           }
@@ -201,17 +197,13 @@ metadata:
                 }
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404",
-                "suppressionPolicy": {
-                  "duration": "1m"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
                 }
-              },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
               }
             }
           }
@@ -241,14 +233,16 @@ metadata:
                 }
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
+                }
               },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
+              "suppressionPolicy": {
+                "duration": "120s"
               }
             }
           }
@@ -258,19 +252,48 @@ metadata:
           "kind": "Prometheus",
           "metadata": {
             "labels": {
-              "app.kubernetes.io/created-by": "k8s-countermeasures",
-              "app.kubernetes.io/instance": "prometheus-sample",
-              "app.kubernetes.io/managed-by": "kustomize",
-              "app.kubernetes.io/name": "prometheus",
-              "app.kubernetes.io/part-of": "k8s-countermeasures"
+              "app.kubernetes.io/instance": "dev",
+              "app.kubernetes.io/name": "p8s-source"
             },
-            "name": "prometheus-sample"
+            "name": "p8s-source"
           },
-          "spec": null
+          "spec": {
+            "includePending": false,
+            "pollingInterval": "10s",
+            "service": {
+              "name": "prometheus-operated",
+              "namespace": "monitoring"
+            }
+          }
+        },
+        {
+          "apiVersion": "eventsource.vilaverde.rocks/v1alpha1",
+          "kind": "Prometheus",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/instance": "dev",
+              "app.kubernetes.io/name": "p8s-source"
+            },
+            "name": "p8s-source-basic"
+          },
+          "spec": {
+            "auth": {
+              "secretRef": {
+                "name": "p8s-basic-auth",
+                "namespace": "ns-custom"
+              }
+            },
+            "includePending": false,
+            "pollingInterval": "30s",
+            "service": {
+              "name": "prometheus-operated",
+              "namespace": "monitoring"
+            }
+          }
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-01-11T02:35:22Z"
+    createdAt: "2023-01-23T00:40:30Z"
     operators.operatorframework.io/builder: operator-sdk-v1.26.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: k8s-countermeasures.v0.0.1
@@ -343,6 +366,22 @@ spec:
           - list
           - patch
           - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - services
+          verbs:
+          - get
+          - list
           - watch
         - apiGroups:
           - countermeasure.vilaverde.rocks
@@ -641,6 +680,26 @@ spec:
     containerPort: 443
     deploymentName: k8s-countermeasures-controller-manager
     failurePolicy: Fail
+    generateName: mprometheus.kb.io
+    rules:
+    - apiGroups:
+      - eventsource.vilaverde.rocks
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - prometheuses
+    sideEffects: None
+    targetPort: 9443
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-eventsource-vilaverde-rocks-v1alpha1-prometheus
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: k8s-countermeasures-controller-manager
+    failurePolicy: Fail
     generateName: vcountermeasure.kb.io
     rules:
     - apiGroups:
@@ -656,3 +715,23 @@ spec:
     targetPort: 9443
     type: ValidatingAdmissionWebhook
     webhookPath: /validate-countermeasure-vilaverde-rocks-v1alpha1-countermeasure
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: k8s-countermeasures-controller-manager
+    failurePolicy: Fail
+    generateName: vprometheus.kb.io
+    rules:
+    - apiGroups:
+      - eventsource.vilaverde.rocks
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - prometheuses
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-eventsource-vilaverde-rocks-v1alpha1-prometheus
