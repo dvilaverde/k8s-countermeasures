@@ -54,19 +54,23 @@ rules:
   - update
   - watch
 - apiGroups:
-  - networking.k8s.io
+  - ""
   resources:
-  - '*'
+  - secrets
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
-  - operator.vilaverde.rocks
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - countermeasure.vilaverde.rocks
   resources:
   - countermeasures
   verbs:
@@ -78,19 +82,57 @@ rules:
   - update
   - watch
 - apiGroups:
-  - operator.vilaverde.rocks
+  - countermeasure.vilaverde.rocks
   resources:
   - countermeasures/finalizers
   verbs:
   - update
 - apiGroups:
-  - operator.vilaverde.rocks
+  - countermeasure.vilaverde.rocks
   resources:
   - countermeasures/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - eventsource.vilaverde.rocks
+  resources:
+  - prometheuses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - eventsource.vilaverde.rocks
+  resources:
+  - prometheuses/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - eventsource.vilaverde.rocks
+  resources:
+  - prometheuses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:

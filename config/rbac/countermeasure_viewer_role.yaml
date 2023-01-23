@@ -12,7 +12,7 @@ metadata:
   name: countermeasure-viewer-role
 rules:
 - apiGroups:
-  - operator.vilaverde.rocks
+  - countermeasure.vilaverde.rocks
   resources:
   - countermeasures
   verbs:
@@ -20,7 +20,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - operator.vilaverde.rocks
+  - countermeasure.vilaverde.rocks
   resources:
   - countermeasures/status
   verbs:

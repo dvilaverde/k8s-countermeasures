@@ -5,7 +5,7 @@ metadata:
     alm-examples: |-
       [
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -39,20 +39,19 @@ metadata:
                 "name": "debug-pod"
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404"
-              },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
+                }
               }
             }
           }
         },
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -78,20 +77,19 @@ metadata:
                 "name": "delete-pod"
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404"
-              },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
+                }
               }
             }
           }
         },
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -119,20 +117,19 @@ metadata:
                 }
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404"
-              },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
+                }
               }
             }
           }
         },
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -156,24 +153,23 @@ metadata:
                     "name": "monitored-app",
                     "namespace": "ns-custom"
                   },
-                  "yamlTemplate": "spec:\n  template:\n    metadata:\n      annotations:\n        operator.vilaverde.rocks/restarted: \"true\"\n"
+                  "yamlTemplate": "spec:\n  template:\n    metadata:\n      annotations:\n        countermeasure.vilaverde.rocks/restarted: \"true\"\n"
                 }
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404"
-              },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
+                }
               }
             }
           }
         },
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -201,23 +197,19 @@ metadata:
                 }
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404",
-                "suppressionPolicy": {
-                  "duration": "1m"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
                 }
-              },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
               }
             }
           }
         },
         {
-          "apiVersion": "operator.vilaverde.rocks/v1alpha1",
+          "apiVersion": "countermeasure.vilaverde.rocks/v1alpha1",
           "kind": "CounterMeasure",
           "metadata": {
             "labels": {
@@ -241,21 +233,67 @@ metadata:
                 }
               }
             ],
-            "prometheus": {
-              "alert": {
-                "includePending": false,
-                "name": "HTTP_404"
+            "onEvent": {
+              "name": "HTTP_404",
+              "sourceSelector": {
+                "matchLabels": {
+                  "app.kubernetes.io/instance": "dev",
+                  "app.kubernetes.io/name": "p8s-source"
+                }
               },
-              "service": {
-                "name": "prometheus-operated",
-                "namespace": "monitoring"
+              "suppressionPolicy": {
+                "duration": "120s"
               }
+            }
+          }
+        },
+        {
+          "apiVersion": "eventsource.vilaverde.rocks/v1alpha1",
+          "kind": "Prometheus",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/instance": "dev",
+              "app.kubernetes.io/name": "p8s-source"
+            },
+            "name": "p8s-source"
+          },
+          "spec": {
+            "includePending": false,
+            "pollingInterval": "10s",
+            "service": {
+              "name": "prometheus-operated",
+              "namespace": "monitoring"
+            }
+          }
+        },
+        {
+          "apiVersion": "eventsource.vilaverde.rocks/v1alpha1",
+          "kind": "Prometheus",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/instance": "dev",
+              "app.kubernetes.io/name": "p8s-source"
+            },
+            "name": "p8s-source-basic"
+          },
+          "spec": {
+            "auth": {
+              "secretRef": {
+                "name": "p8s-basic-auth",
+                "namespace": "ns-custom"
+              }
+            },
+            "includePending": false,
+            "pollingInterval": "30s",
+            "service": {
+              "name": "prometheus-operated",
+              "namespace": "monitoring"
             }
           }
         }
       ]
     capabilities: Basic Install
-    createdAt: "2023-01-08T02:36:44Z"
+    createdAt: "2023-01-23T00:40:30Z"
     operators.operatorframework.io/builder: operator-sdk-v1.26.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
   name: k8s-countermeasures.v0.0.1
@@ -267,7 +305,10 @@ spec:
     - description: CounterMeasure is the Schema for the countermeasures API
       displayName: Counter Measure
       kind: CounterMeasure
-      name: countermeasures.operator.vilaverde.rocks
+      name: countermeasures.countermeasure.vilaverde.rocks
+      version: v1alpha1
+    - kind: Prometheus
+      name: prometheuses.eventsource.vilaverde.rocks
       version: v1alpha1
   description: Runbooks as code
   displayName: Kubernetes CounterMeasures
@@ -327,19 +368,23 @@ spec:
           - update
           - watch
         - apiGroups:
-          - networking.k8s.io
+          - ""
           resources:
-          - '*'
+          - secrets
           verbs:
-          - create
-          - delete
           - get
           - list
-          - patch
-          - update
           - watch
         - apiGroups:
-          - operator.vilaverde.rocks
+          - ""
+          resources:
+          - services
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - countermeasure.vilaverde.rocks
           resources:
           - countermeasures
           verbs:
@@ -351,19 +396,57 @@ spec:
           - update
           - watch
         - apiGroups:
-          - operator.vilaverde.rocks
+          - countermeasure.vilaverde.rocks
           resources:
           - countermeasures/finalizers
           verbs:
           - update
         - apiGroups:
-          - operator.vilaverde.rocks
+          - countermeasure.vilaverde.rocks
           resources:
           - countermeasures/status
           verbs:
           - get
           - patch
           - update
+        - apiGroups:
+          - eventsource.vilaverde.rocks
+          resources:
+          - prometheuses
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - eventsource.vilaverde.rocks
+          resources:
+          - prometheuses/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - eventsource.vilaverde.rocks
+          resources:
+          - prometheuses/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - networking.k8s.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - rbac.authorization.k8s.io
           resources:
@@ -565,7 +648,7 @@ spec:
     - v1
     containerPort: 443
     conversionCRDs:
-    - countermeasures.operator.vilaverde.rocks
+    - countermeasures.countermeasure.vilaverde.rocks
     deploymentName: k8s-countermeasures-controller-manager
     generateName: ccountermeasures.kb.io
     sideEffects: None
@@ -580,7 +663,7 @@ spec:
     generateName: mcountermeasure.kb.io
     rules:
     - apiGroups:
-      - operator.vilaverde.rocks
+      - countermeasure.vilaverde.rocks
       apiVersions:
       - v1alpha1
       operations:
@@ -591,7 +674,27 @@ spec:
     sideEffects: None
     targetPort: 9443
     type: MutatingAdmissionWebhook
-    webhookPath: /mutate-operator-vilaverde-rocks-v1alpha1-countermeasure
+    webhookPath: /mutate-countermeasure-vilaverde-rocks-v1alpha1-countermeasure
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: k8s-countermeasures-controller-manager
+    failurePolicy: Fail
+    generateName: mprometheus.kb.io
+    rules:
+    - apiGroups:
+      - eventsource.vilaverde.rocks
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - prometheuses
+    sideEffects: None
+    targetPort: 9443
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-eventsource-vilaverde-rocks-v1alpha1-prometheus
   - admissionReviewVersions:
     - v1
     containerPort: 443
@@ -600,7 +703,7 @@ spec:
     generateName: vcountermeasure.kb.io
     rules:
     - apiGroups:
-      - operator.vilaverde.rocks
+      - countermeasure.vilaverde.rocks
       apiVersions:
       - v1alpha1
       operations:
@@ -611,4 +714,24 @@ spec:
     sideEffects: None
     targetPort: 9443
     type: ValidatingAdmissionWebhook
-    webhookPath: /validate-operator-vilaverde-rocks-v1alpha1-countermeasure
+    webhookPath: /validate-countermeasure-vilaverde-rocks-v1alpha1-countermeasure
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: k8s-countermeasures-controller-manager
+    failurePolicy: Fail
+    generateName: vprometheus.kb.io
+    rules:
+    - apiGroups:
+      - eventsource.vilaverde.rocks
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - prometheuses
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-eventsource-vilaverde-rocks-v1alpha1-prometheus

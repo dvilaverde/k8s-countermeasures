@@ -17,11 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	rt "runtime"
 	"strings"
-	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -35,24 +36,31 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/api/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/controllers"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources"
-	"github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure/sources/prometheus"
+	"github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
+	eventsourcev1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
+	countermeasure "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
+	eventsource "github.com/dvilaverde/k8s-countermeasures/controllers/eventsource"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/actions"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/dispatcher"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
+	"github.com/operator-framework/operator-lib/leader"
 	//+kubebuilder:scaffold:imports
 )
 
 const watchNamespaceEnvVar = "WATCH_NAMESPACE"
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme         = runtime.NewScheme()
+	setupLog       = ctrl.Log.WithName("setup")
+	ErrNoNamespace = fmt.Errorf("namespace not found for current environment")
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(operatorv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(eventsourcev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -73,20 +81,25 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	// TODO: re-enable
-	// if !enableLeaderElection {
-	// 	err := leader.Become(context.Background(), "countermeasure-op-lock")
-	// 	if err != nil {
-	// 		setupLog.Error(err, "unable to acquire leader lock")
-
-	// 		os.Exit(21)
-	// 	}
-	// }
-
 	watchNamespace, err := getWatchNamespace()
 	if err != nil {
 		setupLog.Error(err, `unable to get WatchNamespace, 
 			the manager will watch and manage resources in all namespaces`)
+	}
+
+	// make our Operator configurable so that users can decide between
+	// 'leader-with-lease' and 'leader-for-life' election strategies
+	if !enableLeaderElection {
+		err = leader.Become(context.Background(), "countermeasure-op-lock")
+		if err != nil {
+			// this error occurs when running locally under a debugger but since
+			// ErrNoNamespace exists in the internal utils package we're checking
+			// for the message instead of using errors.Is(ErrNoNamespace)
+			if err.Error() != ErrNoNamespace.Error() {
+				setupLog.Error(err, "unable to acquire leader lock")
+				os.Exit(21)
+			}
+		}
 	}
 
 	managerOptions := ctrl.Options{
@@ -128,29 +141,50 @@ func main() {
 		os.Exit(1)
 	}
 
-	sources := make([]sources.Source, 1)
+	// dispatch will be started by the controller runtime and will receive events from an
+	// event source and dispatch them to the action manager which implements the listener
+	// interface.
+	actionManager := actions.NewFromManager(mgr)
+	dispatcher := dispatcher.NewDispatcher(actionManager, rt.NumCPU())
+	mgr.Add(dispatcher)
 
-	// add all the supported event sources
-	source := prometheus.NewEventSource(prometheus.NewPrometheusClient, 15*time.Second) // TODO: make configurable
-	sources[0] = source
-	mgr.Add(source)
-
-	reconciler := &controllers.CounterMeasureReconciler{
-		ReconcilerBase: controllers.NewFromManager(mgr, mgr.GetEventRecorderFor("countermeasure_controller")),
-		EventSources:   sources,
+	cmr := &countermeasure.CounterMeasureReconciler{
+		ReconcilerBase: reconciler.NewFromManager(mgr),
+		ActionManager:  actionManager,
 		Log:            ctrl.Log.WithName("controllers").WithName("countermeasure"),
 	}
-	if err = (reconciler).SetupWithManager(mgr); err != nil {
+	if err = (cmr).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create countermeasure controller")
 		os.Exit(1)
 	}
 
+	sourceManager := &sources.Manager{
+		Dispatcher: dispatcher,
+	}
+	// the source manager is a operator manager because it will be listening to the
+	// done channel in order to stop any running event sources.
+	mgr.Add(sourceManager)
+	if err = (&eventsource.PrometheusReconciler{
+		ReconcilerBase: reconciler.NewFromManager(mgr),
+		SourceManager:  sourceManager,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Prometheus")
+		os.Exit(1)
+	}
+
+	v1alpha1.WebhookClient = mgr.GetClient()
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&operatorv1alpha1.CounterMeasure{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&v1alpha1.CounterMeasure{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "CounterMeasure")
 			os.Exit(1)
 		}
+
+		if err = (&eventsourcev1alpha1.Prometheus{}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Prometheus")
+			os.Exit(1)
+		}
 	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

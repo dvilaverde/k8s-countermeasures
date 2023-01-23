@@ -2,4 +2,4 @@ spec:
   template:
     metadata:
       annotations:
-        operator.vilaverde.rocks/restarted: {{ now }}
+        countermeasure.vilaverde.rocks/restarted: {{ now }}

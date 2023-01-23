@@ -13,7 +13,12 @@ spec:
     - description: CounterMeasure is the Schema for the countermeasures API
       displayName: Counter Measure
       kind: CounterMeasure
-      name: countermeasures.operator.vilaverde.rocks
+      name: countermeasures.countermeasure.vilaverde.rocks
+      version: v1alpha1
+    - description: Prometheus is the Schema for the prometheuses API
+      displayName: Prometheus
+      kind: Prometheus
+      name: prometheus.eventsource.vilaverde.rocks
       version: v1alpha1
   description: Runbooks as code
   displayName: Kubernetes CounterMeasures

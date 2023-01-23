@@ -1,4 +1,4 @@
-apiVersion: operator.vilaverde.rocks/v1alpha1
+apiVersion: countermeasure.vilaverde.rocks/v1alpha1
 kind: CounterMeasure
 metadata:
   name: restart-action
@@ -9,13 +9,14 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: k8s-countermeasures
 spec:
-  prometheus:
-    service:
-      name: prometheus-operated
-      namespace: monitoring
-    alert:
-      name: HTTP_404
-      includePending: false
+  onEvent:
+    name: HTTP_404
+    suppressionPolicy:
+      duration: 120s
+    sourceSelector:
+      matchLabels:
+        app.kubernetes.io/name: p8s-source
+        app.kubernetes.io/instance: dev
   actions:
   - name: delete-pod
     restart:
