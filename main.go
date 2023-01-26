@@ -41,9 +41,9 @@ import (
 	countermeasure "github.com/dvilaverde/k8s-countermeasures/controllers/countermeasure"
 	eventsource "github.com/dvilaverde/k8s-countermeasures/controllers/eventsource"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/actions"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/dispatcher"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/producers"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
 	"github.com/operator-framework/operator-lib/leader"
 	//+kubebuilder:scaffold:imports
 )
@@ -145,8 +145,8 @@ func main() {
 	// event source and dispatch them to the action manager which implements the listener
 	// interface.
 	actionManager := actions.NewFromManager(mgr)
-	dispatcher := dispatcher.NewDispatcher(actionManager, rt.NumCPU())
-	mgr.Add(dispatcher)
+	bus := eventbus.NewEventBus(actionManager, rt.NumCPU())
+	mgr.Add(bus)
 
 	cmr := &countermeasure.CounterMeasureReconciler{
 		ReconcilerBase: reconciler.NewFromManager(mgr),
@@ -158,8 +158,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	sourceManager := &sources.Manager{
-		Dispatcher: dispatcher,
+	sourceManager := &producers.Manager{
+		EventBus: bus,
 	}
 	// the source manager is a operator manager because it will be listening to the
 	// done channel in order to stop any running event sources.

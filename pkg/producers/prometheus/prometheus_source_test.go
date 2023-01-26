@@ -114,7 +114,7 @@ func TestEventSource_poll(t *testing.T) {
 			},
 		},
 	}
-	eventsource := NewEventSource(promCR, p)
+	eventsource := NewEventProducer(promCR, p)
 
 	assert.Equal(t, "ns1/prom1", eventsource.Key().GetName())
 

@@ -11,7 +11,7 @@ import (
 	"github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/producers"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -28,9 +28,9 @@ type EventSource struct {
 	subscribers     []events.EventListener
 }
 
-var _ sources.EventSource = &EventSource{}
+var _ producers.EventProducer = &EventSource{}
 
-func NewEventSource(prometheus *v1alpha1.Prometheus, p8Client *PrometheusService) *EventSource {
+func NewEventProducer(prometheus *v1alpha1.Prometheus, p8Client *PrometheusService) *EventSource {
 
 	interval := prometheus.Spec.PollingInterval
 	pending := prometheus.Spec.IncludePending

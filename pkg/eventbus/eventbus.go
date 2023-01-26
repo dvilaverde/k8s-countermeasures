@@ -1,4 +1,4 @@
-package dispatcher
+package eventbus
 
 import (
 	"context"
@@ -13,16 +13,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type Dispatcher struct {
+type EventBus struct {
 	logger        logr.Logger
 	eventListener events.EventListener
 	workqueue     workqueue.RateLimitingInterface
 	workers       int
 }
 
-// NewDispatcher creates a new Dispatcher that uses multiple workers to dispatch events to an action listener
-func NewDispatcher(eventListener events.EventListener, workers int) *Dispatcher {
-	return &Dispatcher{
+// NewEventBus creates a new EventBus that uses multiple workers to publish events to any subscribers
+// TODO: remove EventListener arg
+func NewEventBus(eventListener events.EventListener, workers int) *EventBus {
+	return &EventBus{
 		workers:       workers,
 		eventListener: eventListener,
 		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "EventDispatcher"),
@@ -30,7 +31,7 @@ func NewDispatcher(eventListener events.EventListener, workers int) *Dispatcher 
 }
 
 // Start implements the Runnable interface so that it can be started by the Operator SDK manager.
-func (d *Dispatcher) Start(ctx context.Context) error {
+func (d *EventBus) Start(ctx context.Context) error {
 	log := log.FromContext(ctx)
 	log.Info(fmt.Sprintf("starting event dispatcher with %d workers", d.workers))
 
@@ -45,24 +46,24 @@ func (d *Dispatcher) Start(ctx context.Context) error {
 }
 
 // EnqueueEvent queue an event to be processed
-func (d *Dispatcher) EnqueueEvent(event events.Event) error {
+func (d *EventBus) EnqueueEvent(event events.Event) error {
 	d.workqueue.Add(event)
 	return nil
 }
 
 // InjectLogger injectable logger
 // https://github.com/kubernetes-sigs/controller-runtime/blob/master/pkg/runtime/inject/inject.go
-func (d *Dispatcher) InjectLogger(logr logr.Logger) error {
+func (d *EventBus) InjectLogger(logr logr.Logger) error {
 	d.logger = logr
 	return nil
 }
 
-func (d *Dispatcher) runWorker() {
+func (d *EventBus) runWorker() {
 	for d.processNextWorkItem() {
 	}
 }
 
-func (d *Dispatcher) processNextWorkItem() bool {
+func (d *EventBus) processNextWorkItem() bool {
 	item, shutdown := d.workqueue.Get()
 
 	if shutdown {

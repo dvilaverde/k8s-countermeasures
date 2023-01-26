@@ -1,10 +1,10 @@
-package sources
+package producers
 
 import (
 	"context"
 	"sync"
 
-	"github.com/dvilaverde/k8s-countermeasures/pkg/dispatcher"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,9 +13,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var _ manager.Manager[EventSource] = &Manager{}
+var _ manager.Manager[EventProducer] = &Manager{}
 
-type ActiveEventSources map[manager.ObjectKey]EventSource
+type ActiveEventSources map[manager.ObjectKey]EventProducer
 
 type Manager struct {
 	client   client.Client
@@ -24,10 +24,10 @@ type Manager struct {
 	sourcesMux sync.Mutex
 	sources    ActiveEventSources
 
-	// GlobalPublisher is used to publish any events
+	// TODO: GlobalPublisher is used to publish any events
 	// over to the event manager, which will distribute further
 	// to all the receivers.
-	Dispatcher *dispatcher.Dispatcher
+	EventBus *eventbus.EventBus
 }
 
 func (m *Manager) Remove(name types.NamespacedName) error {
@@ -52,14 +52,14 @@ func (m *Manager) Exists(objectMeta metav1.ObjectMeta) bool {
 	return ok
 }
 
-func (m *Manager) Add(es EventSource) error {
+func (m *Manager) Add(producer EventProducer) error {
 	m.sourcesMux.Lock()
 	defer m.sourcesMux.Unlock()
 
-	key := es.Key()
-	m.sources[key] = es
+	key := producer.Key()
+	m.sources[key] = producer
 
-	es.Subscribe(events.OnEventFunc(func(event events.Event) error {
+	producer.Subscribe(events.OnEventFunc(func(event events.Event) error {
 		if (event.Source == events.SourceName{}) {
 
 			// when there is an empty source lets populate it before propagating the event.
@@ -68,10 +68,10 @@ func (m *Manager) Add(es EventSource) error {
 				Namespace: key.Namespace,
 			}
 		}
-		return m.Dispatcher.EnqueueEvent(event)
+		return m.EventBus.EnqueueEvent(event)
 	}))
 	// place the event source on a goroutine so that it wont' block this method
-	go es.Start(m.shutdown)
+	go producer.Start(m.shutdown)
 
 	return nil
 }

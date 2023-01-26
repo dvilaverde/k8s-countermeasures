@@ -1,4 +1,4 @@
-package dispatcher
+package eventbus
 
 import (
 	"context"
@@ -34,14 +34,14 @@ func (l *MockListener) OnEvent(event events.Event) error {
 
 func TestDispatcher_Dispatch(t *testing.T) {
 	listener := &MockListener{}
-	dispatcher := NewDispatcher(listener, 2)
-	dispatcher.InjectLogger(testr.New(t))
+	bus := NewEventBus(listener, 2)
+	bus.InjectLogger(testr.New(t))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// start the dispatcher in a go routine so that the rest of the test can continue
-	go dispatcher.Start(ctx)
+	go bus.Start(ctx)
 
 	data := make(events.EventData)
 	data["d1"] = "v1"
@@ -51,7 +51,7 @@ func TestDispatcher_Dispatch(t *testing.T) {
 		Data:       &data,
 	}
 
-	dispatcher.EnqueueEvent(e1)
+	bus.EnqueueEvent(e1)
 	assert.Eventually(t, func() bool {
 		listener.eventsMux.Lock()
 		defer listener.eventsMux.Unlock()
@@ -71,14 +71,14 @@ func TestDispatcher_DispatchRetry(t *testing.T) {
 	listener := &MockListener{
 		errorAttempts: 3,
 	}
-	dispatcher := NewDispatcher(listener, 2)
-	dispatcher.InjectLogger(testr.New(t))
+	bus := NewEventBus(listener, 2)
+	bus.InjectLogger(testr.New(t))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// start the dispatcher in a go routine so that the rest of the test can continue
-	go dispatcher.Start(ctx)
+	go bus.Start(ctx)
 
 	data := make(events.EventData)
 	data["d1"] = "v1"
@@ -88,10 +88,10 @@ func TestDispatcher_DispatchRetry(t *testing.T) {
 		Data:       &data,
 	}
 
-	dispatcher.EnqueueEvent(e1)
+	bus.EnqueueEvent(e1)
 
 	// add an invalid item to the queue to make sure the dispatcher ignores it
-	dispatcher.workqueue.Add("should throw this out")
+	bus.workqueue.Add("should throw this out")
 	assert.Eventually(t, func() bool {
 		listener.eventsMux.Lock()
 		defer listener.eventsMux.Unlock()
@@ -111,14 +111,14 @@ func TestDispatcher_DispatchError(t *testing.T) {
 	listener := &MockListener{
 		errorAttempts: 10000000,
 	}
-	dispatcher := NewDispatcher(listener, 2)
-	dispatcher.InjectLogger(testr.New(t))
+	bus := NewEventBus(listener, 2)
+	bus.InjectLogger(testr.New(t))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// start the dispatcher in a go routine so that the rest of the test can continue
-	go dispatcher.Start(ctx)
+	go bus.Start(ctx)
 
 	data := make(events.EventData)
 	data["d1"] = "v1"
@@ -128,7 +128,7 @@ func TestDispatcher_DispatchError(t *testing.T) {
 		Data:       &data,
 	}
 
-	dispatcher.EnqueueEvent(e1)
+	bus.EnqueueEvent(e1)
 	assert.Never(t, func() bool {
 		listener.eventsMux.Lock()
 		defer listener.eventsMux.Unlock()
