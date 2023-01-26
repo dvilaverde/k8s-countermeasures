@@ -1,4 +1,4 @@
-package sources
+package producers
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/dispatcher"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var dummySource EventSource = &DummyEventSource{}
+var dummySource EventProducer = &DummyEventSource{}
 
 func TestManager_Remove(t *testing.T) {
 	mgr := getManager(t)
@@ -49,7 +49,7 @@ func TestManager_Add(t *testing.T) {
 
 func getManager(t *testing.T) *Manager {
 	mgr := &Manager{
-		Dispatcher: dispatcher.NewDispatcher(events.OnEventFunc(func(e events.Event) error {
+		EventBus: eventbus.NewEventBus(events.OnEventFunc(func(e events.Event) error {
 			return nil
 		}), 1),
 	}

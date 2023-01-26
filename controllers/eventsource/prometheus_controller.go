@@ -33,15 +33,15 @@ import (
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/producers"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/producers/prometheus"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/sources"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/sources/prometheus"
 )
 
 // PrometheusReconciler reconciles a Prometheus object
 type PrometheusReconciler struct {
 	reconciler.ReconcilerBase
-	SourceManager manager.Manager[sources.EventSource]
+	SourceManager manager.Manager[producers.EventProducer]
 	Log           logr.Logger
 }
 
@@ -90,7 +90,7 @@ func (r *PrometheusReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return r.HandleErrorAndRequeue(ctx, eventSourceCR.ObjectMeta, err, time.Duration(30*time.Second))
 		}
 
-		err = sourceManager.Add(prometheus.NewEventSource(eventSourceCR, client))
+		err = sourceManager.Add(prometheus.NewEventProducer(eventSourceCR, client))
 		return r.HandleOutcome(ctx, eventSourceCR.ObjectMeta, err)
 	}
 
