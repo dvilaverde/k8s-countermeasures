@@ -40,11 +40,7 @@ func TestManager_OnEvent(t *testing.T) {
 	})
 
 	e := events.Event{
-		Name: "event2",
-		Source: events.SourceName{
-			Namespace: "ns",
-			Name:      "prometheus",
-		},
+		Name:       "event2",
 		ActiveTime: time.Now(),
 		Data: &events.EventData{
 			"prop1": "value1",

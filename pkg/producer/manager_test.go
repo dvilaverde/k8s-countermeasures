@@ -1,4 +1,4 @@
-package producers
+package producer
 
 import (
 	"context"
@@ -14,14 +14,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var dummySource EventProducer = &DummyEventSource{}
+var dummySource KeyedEventProducer = &DummyEventSource{}
 
 func TestManager_Remove(t *testing.T) {
 	mgr := getManager(t)
 	assert.NotNil(t, mgr)
 
 	mgr.Remove(dummySource.Key().NamespacedName)
-	assert.Equal(t, 0, len(mgr.sources))
+	assert.Equal(t, 0, len(mgr.producers))
 }
 
 func TestManager_Exists(t *testing.T) {
@@ -49,9 +49,7 @@ func TestManager_Add(t *testing.T) {
 
 func getManager(t *testing.T) *Manager {
 	mgr := &Manager{
-		EventBus: eventbus.NewEventBus(events.OnEventFunc(func(e events.Event) error {
-			return nil
-		}), 1),
+		eventBus: eventbus.NewEventBus(1),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -59,13 +57,13 @@ func getManager(t *testing.T) *Manager {
 	go mgr.Start(ctx)
 
 	assert.Eventually(t, func() bool {
-		mgr.sourcesMux.Lock()
-		defer mgr.sourcesMux.Unlock()
-		return mgr.sources != nil
-	}, time.Second, time.Millisecond*10, "expecting that the sources map to be initialized")
+		mgr.producersMux.Lock()
+		defer mgr.producersMux.Unlock()
+		return mgr.producers != nil
+	}, time.Second, time.Millisecond*10, "expecting that the producers map to be initialized")
 
 	mgr.Add(dummySource)
-	assert.Equal(t, 1, len(mgr.sources))
+	assert.Equal(t, 1, len(mgr.producers))
 	return mgr
 }
 
@@ -77,6 +75,10 @@ func (d *DummyEventSource) Key() manager.ObjectKey {
 		NamespacedName: types.NamespacedName{Namespace: "ns", Name: "name"},
 		Generation:     1,
 	}
+}
+
+func (d *DummyEventSource) Publish(string, events.Event) error {
+	return nil
 }
 
 func (d *DummyEventSource) Start(ch <-chan struct{}) error {

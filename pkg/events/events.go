@@ -29,12 +29,10 @@ func (d *EventData) Get(key string) string {
 }
 
 type Event struct {
-	Name       string
-	ActiveTime time.Time
-	// Data is a pointer ref so these events can be added
-	// into the workqueue of the Dispatcher
-	Data   *EventData
-	Source SourceName
+	Name       string    `json:"name,omitempty"`
+	ActiveTime time.Time `json:"activeTime,omitempty"`
+	// Data is a pointer ref so these events can be added into the workqueue of the Dispatcher
+	Data *EventData `json:"data,omitempty"`
 }
 
 // Key hash the EventData into a key that can be used to de-duplicate events.

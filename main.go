@@ -42,7 +42,7 @@ import (
 	eventsource "github.com/dvilaverde/k8s-countermeasures/controllers/eventsource"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/actions"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/producers"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/producer"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
 	"github.com/operator-framework/operator-lib/leader"
 	//+kubebuilder:scaffold:imports
@@ -141,12 +141,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// dispatch will be started by the controller runtime and will receive events from an
-	// event source and dispatch them to the action manager which implements the listener
-	// interface.
-	actionManager := actions.NewFromManager(mgr)
-	bus := eventbus.NewEventBus(actionManager, rt.NumCPU())
+	// EventBus will be started by the controller runtime and will receive events from an
+	// the event producers and dispatch them to the subscribers registered with the action
+	// manager.
+	bus := eventbus.NewEventBus(rt.NumCPU())
 	mgr.Add(bus)
+	actionManager := actions.NewFromManager(mgr, bus)
 
 	cmr := &countermeasure.CounterMeasureReconciler{
 		ReconcilerBase: reconciler.NewFromManager(mgr),
@@ -158,15 +158,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	sourceManager := &producers.Manager{
-		EventBus: bus,
-	}
+	producersManager := producer.NewManager(bus)
 	// the source manager is a operator manager because it will be listening to the
 	// done channel in order to stop any running event sources.
-	mgr.Add(sourceManager)
+	mgr.Add(producersManager)
 	if err = (&eventsource.PrometheusReconciler{
 		ReconcilerBase: reconciler.NewFromManager(mgr),
-		SourceManager:  sourceManager,
+		Producers:      producersManager,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Prometheus")
 		os.Exit(1)

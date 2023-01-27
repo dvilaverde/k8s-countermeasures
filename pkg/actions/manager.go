@@ -9,6 +9,7 @@ import (
 	sourceV1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 
 	"github.com/dvilaverde/k8s-countermeasures/pkg/actions/state"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,17 +31,18 @@ type Manager struct {
 	restConfig *rest.Config
 	recorder   record.EventRecorder
 
-	state *state.ActionState
-
+	state          *state.ActionState
+	eventbus       *eventbus.EventBus
 	ActionRegistry Registry
 }
 
 // NewFromManager construct a new action manager
-func NewFromManager(mgr controller.Manager) *Manager {
+func NewFromManager(mgr controller.Manager, bus *eventbus.EventBus) *Manager {
 	actionRegistry := Registry{}
 	actionRegistry.Initialize()
 
 	return &Manager{
+		eventbus:       bus,
 		client:         mgr.GetClient(),
 		restConfig:     mgr.GetConfig(),
 		recorder:       mgr.GetEventRecorderFor("action_manager"),

@@ -8,6 +8,7 @@ import (
 	"github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/producer"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
@@ -47,28 +48,16 @@ func TestEventSource_Key(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			d := &EventSource{
-				key: tt.fields.key,
+			d := &EventProducer{
+				config: PrometheusConfig{
+					Key: tt.fields.key,
+				},
 			}
-			if got := d.Key(); !reflect.DeepEqual(got, tt.want) {
+			if got := d.config.Key; !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("EventSource.Key() = %v, want %v", got, tt.want)
 			}
 		})
 	}
-}
-
-func TestEventSource_Subscribe(t *testing.T) {
-	s := &EventSource{
-		subscribers: make([]events.EventListener, 0),
-	}
-
-	assert.Equal(t, 0, len(s.subscribers))
-
-	s.Subscribe(events.OnEventFunc(func(events.Event) error {
-		return nil
-	}))
-
-	assert.Equal(t, 1, len(s.subscribers))
 }
 
 func TestEventSource_poll(t *testing.T) {
@@ -114,7 +103,13 @@ func TestEventSource_poll(t *testing.T) {
 			},
 		},
 	}
-	eventsource := NewEventProducer(promCR, p)
+
+	config := PrometheusConfig{
+		Key:    manager.ToKey(promCR.ObjectMeta),
+		Client: p,
+	}
+	var eventProducer producer.EventProducer // TODO nees impl
+	eventsource := NewEventProducer(config, eventProducer)
 
 	assert.Equal(t, "ns1/prom1", eventsource.Key().GetName())
 
@@ -122,6 +117,8 @@ func TestEventSource_poll(t *testing.T) {
 	go eventsource.Start(done)
 
 	publishCh := make(chan events.Event)
+
+	// TODO: subscribe to the event bus
 	eventsource.Subscribe(events.OnEventFunc(func(e events.Event) error {
 		publishCh <- e
 		return nil

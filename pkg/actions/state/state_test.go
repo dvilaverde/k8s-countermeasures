@@ -37,7 +37,6 @@ func TestActionState_IsRunning(t *testing.T) {
 	event := events.Event{
 		Name:       "event1",
 		ActiveTime: time.Now(),
-		Source:     events.SourceName{Namespace: "ns", Name: "prometheus"},
 		Data:       &events.EventData{},
 	}
 	state.CounterMeasureStart(event, key)
@@ -181,7 +180,6 @@ func TestActionState_CounterMeasureEvents(t *testing.T) {
 	event := events.Event{
 		Name:       "event1",
 		ActiveTime: time.Now(),
-		Source:     events.SourceName{Namespace: "ns", Name: "prometheus"},
 		Data:       &events.EventData{},
 	}
 

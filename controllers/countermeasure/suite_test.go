@@ -35,6 +35,7 @@ import (
 
 	operatorv1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/actions"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
 	//+kubebuilder:scaffold:imports
 )
@@ -89,9 +90,11 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
+	bus := eventbus.NewEventBus(1)
+
 	err = (&CounterMeasureReconciler{
 		ReconcilerBase: reconciler.NewFromManager(k8sManager),
-		ActionManager:  actions.NewFromManager(k8sManager),
+		ActionManager:  actions.NewFromManager(k8sManager, bus),
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
