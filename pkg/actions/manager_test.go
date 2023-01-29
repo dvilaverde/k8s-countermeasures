@@ -10,7 +10,9 @@ import (
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/countermeasure/v1alpha1"
 	esV1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/actions/state"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +25,14 @@ import (
 func TestManager_OnEvent(t *testing.T) {
 	eventsMux := sync.Mutex{}
 	recordedEvents := make([]string, 0)
-	manager, eventsCh := Deploy(t)
+
+	bus := eventbus.NewEventBus(1)
+	bus.InjectLogger(testr.New(t))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go bus.Start(ctx)
+
+	mgr, eventsCh := Deploy(t, bus)
 
 	go func() {
 		for s := range eventsCh {
@@ -35,7 +44,7 @@ func TestManager_OnEvent(t *testing.T) {
 
 	mockAction := &MockAction{}
 
-	manager.ActionRegistry.RegisterAction(v1alpha1.RestartSpec{}, func(spec v1alpha1.Action, c ActionContext, dryRun bool) Action {
+	mgr.ActionRegistry.RegisterAction(v1alpha1.RestartSpec{}, func(spec v1alpha1.Action, c ActionContext, dryRun bool) Action {
 		return mockAction
 	})
 
@@ -47,10 +56,10 @@ func TestManager_OnEvent(t *testing.T) {
 		},
 	}
 
-	manager.OnEvent(e)
+	bus.Publish("event2", e)
 	assert.Eventually(t, func() bool {
-		e := manager.state.GetCounterMeasures("event2")[0]
-		return !e.Running
+		key := manager.ToKey(CreateObjectMeta("selected-events"))
+		return !mgr.state.IsRunning(key)
 	}, time.Second*5, time.Millisecond*500, "expected the action to complete")
 
 	eventsMux.Lock()
@@ -58,29 +67,42 @@ func TestManager_OnEvent(t *testing.T) {
 	eventsMux.Unlock()
 
 	// if we fire the event again it should not fire due to the suppression policy
-	manager.OnEvent(e)
+	bus.Publish("event2", e)
 	assert.Eventually(t, func() bool {
 		eventsMux.Lock()
 		defer eventsMux.Unlock()
-		return strings.Contains(recordedEvents[1], "Skipping")
-	}, time.Second*5, time.Millisecond*500, "expected there to be a suppress event")
+		return len(recordedEvents) == 2 && strings.Contains(recordedEvents[1], "Skipping")
+	}, time.Second*500, time.Millisecond*500, "expected there to be a suppress event")
 }
 
 func TestManager_Add(t *testing.T) {
+	bus := eventbus.NewEventBus(1)
+	bus.InjectLogger(testr.New(t))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go bus.Start(ctx)
 
-	manager, _ := Deploy(t)
+	mgr, _ := Deploy(t, bus)
 
-	assert.True(t, manager.Exists(CreateObjectMeta("all-events")))
-	entry := manager.state.GetCounterMeasures("event1")[0]
-	assert.Equal(t, 0, len(entry.Sources))
+	meta1 := CreateObjectMeta("all-events")
+	assert.True(t, mgr.Exists(meta1))
+	entry := mgr.state.GetCounterMeasure(manager.ToKey(meta1))
+	assert.Equal(t, "event1", entry.Countermeasure.Spec.OnEvent.EventName)
 
-	assert.True(t, manager.Exists(CreateObjectMeta("selected-events")))
-	entry = manager.state.GetCounterMeasures("event2")[0]
-	assert.Equal(t, 1, len(entry.Sources))
+	meta2 := CreateObjectMeta("selected-events")
+	assert.True(t, mgr.Exists(meta2))
+	entry = mgr.state.GetCounterMeasure(manager.ToKey(meta2))
+	assert.Equal(t, "event2", entry.Countermeasure.Spec.OnEvent.EventName)
 }
 
 func TestManager_Remove(t *testing.T) {
-	manager, _ := Deploy(t)
+	bus := eventbus.NewEventBus(1)
+	bus.InjectLogger(testr.New(t))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go bus.Start(ctx)
+
+	manager, _ := Deploy(t, bus)
 	assert.True(t, manager.Exists(CreateObjectMeta("all-events")))
 	err := manager.Remove(types.NamespacedName{Namespace: "ns", Name: "all-events"})
 	assert.NoError(t, err)
@@ -88,11 +110,17 @@ func TestManager_Remove(t *testing.T) {
 }
 
 func TestManager_Exists(t *testing.T) {
-	manager, _ := Deploy(t)
+	bus := eventbus.NewEventBus(1)
+	bus.InjectLogger(testr.New(t))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go bus.Start(ctx)
+
+	manager, _ := Deploy(t, bus)
 	assert.True(t, manager.Exists(CreateObjectMeta("all-events")))
 }
 
-func Deploy(t *testing.T) (*Manager, <-chan string) {
+func Deploy(t *testing.T, bus *eventbus.EventBus) (*Manager, <-chan string) {
 	actionRegistry := Registry{}
 	// purposely not initializing the action registry so that the callsers of Deploy
 	// can add mock actions
@@ -119,8 +147,10 @@ func Deploy(t *testing.T) (*Manager, <-chan string) {
 		client:         k8sClient,
 		restConfig:     nil,
 		recorder:       recorder,
-		state:          state.NewState(),
 		ActionRegistry: actionRegistry,
+		eventbus:       bus,
+		consumers:      make(map[types.NamespacedName]eventbus.Consumer),
+		state:          state.NewState(),
 	}
 	managerLog = testr.New(t)
 

@@ -16,28 +16,23 @@ type RunningSet map[manager.ObjectKey]struct{}
 type Entry struct {
 	sync.Mutex
 
-	Name string
-	// A set of sources that this counter measure will accept events from
-	Sources        map[events.SourceName]struct{}
-	Key            manager.ObjectKey
+	Name           string
 	Countermeasure *v1alpha1.CounterMeasure
-	Running        bool
-	lastRuns       map[string]time.Time
+
+	running  bool
+	lastRuns map[string]time.Time
 }
 
 type ActionState struct {
 	measuresMux sync.RWMutex
 	// map of deployed countermeasures, keyed by ObjectKey to the CounterMeasure spec
 	counterMeasures ActiveCounterMeasures
-	// eventname to ObjectKey of the countermeasure
-	eventIndex map[string][]manager.ObjectKey
 }
 
 func NewState() *ActionState {
 	return &ActionState{
 		measuresMux:     sync.RWMutex{},
 		counterMeasures: make(ActiveCounterMeasures, 0),
-		eventIndex:      make(map[string][]manager.ObjectKey),
 	}
 }
 
@@ -50,7 +45,7 @@ func (s *ActionState) IsRunning(key manager.ObjectKey) bool {
 		return false
 	}
 
-	return entry.Running
+	return entry.running
 }
 
 // CounterMeasureStart record the start of a countermeasure for an event.
@@ -60,7 +55,7 @@ func (s *ActionState) CounterMeasureStart(event events.Event, key manager.Object
 
 	entry := s.counterMeasures[key]
 	entry.Lock()
-	entry.Running = true
+	entry.running = true
 
 	// if there is a suppression policy then calculate the time until future events
 	// with the same key are suppressed.
@@ -78,7 +73,7 @@ func (s *ActionState) CounterMeasureEnd(event events.Event, key manager.ObjectKe
 	entry := s.counterMeasures[key]
 
 	entry.Lock()
-	entry.Running = false
+	entry.running = false
 	entry.Unlock()
 }
 
@@ -93,7 +88,7 @@ func (s *ActionState) IsDeployed(key manager.ObjectKey) bool {
 }
 
 // Add adds a new CounterMeasure entry
-func (s *ActionState) Add(countermeasure *v1alpha1.CounterMeasure, sources []manager.ObjectKey) error {
+func (s *ActionState) Add(countermeasure *v1alpha1.CounterMeasure) error {
 
 	key := manager.ToKey(countermeasure.ObjectMeta)
 
@@ -103,23 +98,15 @@ func (s *ActionState) Add(countermeasure *v1alpha1.CounterMeasure, sources []man
 	onEvent := countermeasure.Spec.OnEvent
 	entry := &Entry{
 		Name:           onEvent.EventName,
-		Sources:        make(map[events.SourceName]struct{}),
-		Key:            key,
 		Countermeasure: countermeasure,
-		Running:        false,
+		running:        false,
 		lastRuns:       make(map[string]time.Time),
-	}
-
-	for _, source := range sources {
-		key := source.NamespacedName
-		entry.Sources[events.SourceName(key)] = struct{}{}
 	}
 
 	s.measuresMux.Lock()
 	defer s.measuresMux.Unlock()
 
 	s.counterMeasures[key] = entry
-	s.eventIndex[onEvent.EventName] = append(s.eventIndex[onEvent.EventName], key)
 
 	return nil
 }
@@ -139,53 +126,20 @@ func (s *ActionState) Remove(name types.NamespacedName) error {
 }
 
 // GetCounterMeasures return all CounterMeasure entries that subscribe to the named event.
-func (s *ActionState) GetCounterMeasures(eventName string) []*Entry {
+func (s *ActionState) GetCounterMeasure(key manager.ObjectKey) *Entry {
 	s.measuresMux.Lock()
 	defer s.measuresMux.Unlock()
 
-	objecKeys, ok := s.eventIndex[eventName]
+	entry, ok := s.counterMeasures[key]
 	if !ok {
 		return nil
 	}
 
-	var rebuildIndex = false
-	entries := make([]*Entry, 0, len(objecKeys))
-	for _, objectKey := range objecKeys {
-		entry, ok := s.counterMeasures[objectKey]
-		if !ok {
-			// A countermeasure was removed but the index wasn't updated
-			rebuildIndex = true
-			continue
-		}
+	// do some housekeeping when we're looking for CounterMeasure entries
+	// so we can free up any memory used from previous events.
+	entry.clearExpiredLastRuns()
 
-		// do some housekeeping when we're looking for CounterMeasure entries
-		// so we can free up any memory used from previous events.
-		entry.clearExpiredLastRuns()
-		entries = append(entries, entry)
-	}
-
-	// rebuild the out of date index
-	if rebuildIndex {
-		s.eventIndex[eventName] = []manager.ObjectKey{}
-		for _, e := range entries {
-			s.eventIndex[eventName] = append(s.eventIndex[eventName], e.Key)
-		}
-	}
-
-	return entries
-}
-
-// Accept returns true if the event should trigger a CounterMeasure
-func (e *Entry) Accept(event events.Event) bool {
-	var (
-		accept = e.Name == event.Name
-	)
-
-	if accept && e.Sources != nil && len(e.Sources) > 0 {
-		_, accept = e.Sources[event.Source]
-	}
-
-	return accept
+	return entry
 }
 
 func (e *Entry) IsSuppressed(event events.Event) bool {
@@ -202,7 +156,7 @@ func (e *Entry) IsSuppressed(event events.Event) bool {
 		suppressed = suppressedUntil.After(time.Now())
 	}
 
-	return e.Running || suppressed
+	return e.running || suppressed
 }
 
 func (e *Entry) clearExpiredLastRuns() {

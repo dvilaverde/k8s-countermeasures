@@ -6,21 +6,7 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"k8s.io/apimachinery/pkg/types"
 )
-
-type EventListener interface {
-	OnEvent(Event) error
-}
-
-type OnEventFunc func(Event) error
-
-func (pub OnEventFunc) OnEvent(event Event) error {
-	return pub(event)
-}
-
-type SourceName types.NamespacedName
 
 type EventData map[string]string
 

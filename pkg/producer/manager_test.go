@@ -9,6 +9,7 @@ import (
 	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -49,12 +50,15 @@ func TestManager_Add(t *testing.T) {
 
 func getManager(t *testing.T) *Manager {
 	mgr := &Manager{
-		eventBus: eventbus.NewEventBus(1),
+		eventBus:  eventbus.NewEventBus(1),
+		producers: make(map[manager.ObjectKey]KeyedEventProducer),
 	}
+	mgr.eventBus.InjectLogger(testr.New(t))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	go mgr.Start(ctx)
+	mgr.eventBus.Start(ctx)
 
 	assert.Eventually(t, func() bool {
 		mgr.producersMux.Lock()
@@ -83,9 +87,5 @@ func (d *DummyEventSource) Publish(string, events.Event) error {
 
 func (d *DummyEventSource) Start(ch <-chan struct{}) error {
 	<-ch
-	return nil
-}
-
-func (d *DummyEventSource) Subscribe(_ events.EventListener) error {
 	return nil
 }

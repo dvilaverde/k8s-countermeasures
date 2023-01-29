@@ -91,10 +91,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	bus := eventbus.NewEventBus(1)
+	k8sManager.Add(bus)
 
 	err = (&CounterMeasureReconciler{
-		ReconcilerBase: reconciler.NewFromManager(k8sManager),
-		ActionManager:  actions.NewFromManager(k8sManager, bus),
+		ReconcilerBase:  reconciler.NewFromManager(k8sManager),
+		ConsumerManager: actions.NewFromManager(k8sManager, bus),
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 

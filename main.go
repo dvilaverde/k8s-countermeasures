@@ -146,12 +146,12 @@ func main() {
 	// manager.
 	bus := eventbus.NewEventBus(rt.NumCPU())
 	mgr.Add(bus)
-	actionManager := actions.NewFromManager(mgr, bus)
+	consumerMgr := actions.NewFromManager(mgr, bus)
 
 	cmr := &countermeasure.CounterMeasureReconciler{
-		ReconcilerBase: reconciler.NewFromManager(mgr),
-		ActionManager:  actionManager,
-		Log:            ctrl.Log.WithName("controllers").WithName("countermeasure"),
+		ReconcilerBase:  reconciler.NewFromManager(mgr),
+		ConsumerManager: consumerMgr,
+		Log:             ctrl.Log.WithName("controllers").WithName("countermeasure"),
 	}
 	if err = (cmr).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create countermeasure controller")

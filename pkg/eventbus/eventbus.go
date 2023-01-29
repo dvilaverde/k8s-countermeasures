@@ -28,7 +28,7 @@ type EventBus struct {
 
 	// map of topics to consumers
 	consumersMux sync.RWMutex
-	consumers    map[string][]EventConsumer
+	consumers    map[string][]chan events.Event
 }
 
 func NewRateLimiter() workqueue.RateLimiter {
@@ -45,7 +45,7 @@ func NewEventBus(workers int) *EventBus {
 		workers:            workers,
 		workerShutdownChan: make(chan struct{}),
 		consumersMux:       sync.RWMutex{},
-		consumers:          make(map[string][]EventConsumer),
+		consumers:          make(map[string][]chan events.Event),
 		workqueue:          workqueue.NewNamedRateLimitingQueue(NewRateLimiter(), "EventDispatcher"),
 	}
 }
@@ -71,7 +71,7 @@ func (d *EventBus) Start(ctx context.Context) error {
 	// class all the EventConsumer channels
 	for _, consumers := range d.consumers {
 		for _, consumer := range consumers {
-			close(consumer.eventChannel)
+			close(consumer)
 		}
 	}
 
@@ -90,24 +90,26 @@ func (d *EventBus) Publish(topic string, event events.Event) error {
 }
 
 // Subscribe registers a subscription on the topic
-func (d *EventBus) Subscribe(topic string) (EventConsumer, error) {
+func (d *EventBus) Subscribe(topic string) (Consumer, error) {
 	d.consumersMux.Lock()
 	defer d.consumersMux.Unlock()
 
-	consumer := NewConsumer(d, topic)
-	d.consumers[topic] = append(d.consumers[topic], consumer)
+	consumerCh := make(chan events.Event, CONSUMER_BUFFER_SIZE)
+	consumer := NewConsumer(d, topic, consumerCh)
+	d.consumers[topic] = append(d.consumers[topic], consumerCh)
 
 	return consumer, nil
 }
 
-func (d *EventBus) unsubscribe(consumer EventConsumer) error {
+func (d *EventBus) unsubscribe(topic string, ch chan events.Event) error {
 	d.consumersMux.Lock()
 	defer d.consumersMux.Unlock()
 
-	subscribers := d.consumers[consumer.topic]
+	subscribers := d.consumers[topic]
 	for idx, c := range subscribers {
-		if c.consumerId == consumer.consumerId {
-			d.consumers[consumer.topic] = append(subscribers[:idx], subscribers[idx+1:]...)
+		if ch == c {
+			d.consumers[topic] = append(subscribers[:idx], subscribers[idx+1:]...)
+			defer close(ch)
 			break
 		}
 	}
@@ -161,11 +163,11 @@ func (d *EventBus) processNextWorkItem() bool {
 
 		for _, consumer := range d.consumers[m.topic] {
 			select {
-			case consumer.eventChannel <- m.event:
+			case consumer <- m.event:
 			default:
 				// Put the item back on the workqueue to handle any transient errors.
 				d.workqueue.AddRateLimited(m)
-				return fmt.Errorf("consumer '%s' not ready for event '%s', requeuing", consumer.consumerId, m.event.Key())
+				return fmt.Errorf("consumer not ready for event '%s', requeuing", m.event.Key())
 			}
 		}
 

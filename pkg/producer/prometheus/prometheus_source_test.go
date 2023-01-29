@@ -1,14 +1,15 @@
 package prometheus
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/producer"
+	"github.com/go-logr/logr/testr"
 	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/assert"
@@ -108,29 +109,27 @@ func TestEventSource_poll(t *testing.T) {
 		Key:    manager.ToKey(promCR.ObjectMeta),
 		Client: p,
 	}
-	var eventProducer producer.EventProducer // TODO nees impl
-	eventsource := NewEventProducer(config, eventProducer)
 
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	eventBus := eventbus.NewEventBus(1)
+	eventBus.InjectLogger(testr.New(t))
+	go eventBus.Start(ctx)
+
+	eventCh, err := eventBus.Subscribe("active-alert")
+	assert.NoError(t, err)
+
+	eventsource := NewEventProducer(config, eventBus)
 	assert.Equal(t, "ns1/prom1", eventsource.Key().GetName())
 
-	done := make(chan struct{})
-	go eventsource.Start(done)
-
-	publishCh := make(chan events.Event)
-
-	// TODO: subscribe to the event bus
-	eventsource.Subscribe(events.OnEventFunc(func(e events.Event) error {
-		publishCh <- e
-		return nil
-	}))
+	go eventsource.Start(ctx.Done())
 
 	select {
-	case event := <-publishCh:
+	case event := <-eventCh.OnEvent():
 		assert.Equal(t, "active-alert", event.Name)
 		assert.Equal(t, "app-pod-xyxsl", event.Data.Get("pod"))
 	case <-time.After(time.Second * 5):
 		t.Fatal("event never arrived")
 	}
-
-	close(done)
 }

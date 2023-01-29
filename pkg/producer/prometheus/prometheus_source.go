@@ -55,7 +55,6 @@ func (d *EventProducer) Start(done <-chan struct{}) error {
 // Publish send the event to the bus, retrying on any errors
 func (d *EventProducer) Publish(topic string, event events.Event) error {
 	return retry.OnError(retry.DefaultBackoff, func(err error) bool { return true }, func() error {
-		topic := "" // TODO: topic name here
 		return d.producer.Publish(topic, event)
 	})
 }
@@ -81,7 +80,7 @@ func (d *EventProducer) poll() {
 	}
 
 	for _, event := range eventsToPublish {
-		if err := d.Publish("", event); err != nil {
+		if err := d.Publish(event.Name, event); err != nil {
 			prometheusLogger.Error(err, fmt.Sprintf("failed to publish event %v", event.Name))
 		}
 	}

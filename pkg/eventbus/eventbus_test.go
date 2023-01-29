@@ -40,7 +40,7 @@ func TestDispatcher_Subscribe(t *testing.T) {
 	assert.Equal(t, 1, len(bus.consumers))
 	bus.consumersMux.Unlock()
 
-	event := consumer.OnEventSync()
+	event := consumer.OnEventSync(context.TODO())
 	assert.Equal(t, e1.Name, event.Name)
 	assert.Equal(t, e1.ActiveTime, event.ActiveTime)
 	assert.Equal(t, 1, len(*event.Data))
@@ -79,7 +79,7 @@ func TestDispatcher_UnSubscribe(t *testing.T) {
 
 	bus.Publish("e1", e1)
 
-	event := consumer.OnEventSync()
+	event := consumer.OnEventSync(context.TODO())
 	assert.Equal(t, e1.Name, event.Name)
 	assert.Equal(t, e1.ActiveTime, event.ActiveTime)
 	assert.Equal(t, 1, len(*event.Data))
@@ -88,10 +88,13 @@ func TestDispatcher_UnSubscribe(t *testing.T) {
 	consumer.UnSubscribe()
 
 	bus.Publish("e1", e1)
-	timer := time.NewTimer(time.Millisecond * 100)
+	timer := time.NewTimer(time.Millisecond * 1000000000)
 	select {
-	case event = <-consumer.OnEvent():
-		t.Fatal("Received an event when none was expected")
+	case e, ok := <-consumer.OnEvent():
+		if ok {
+			t.Fatal("Received an event when none was expected")
+		}
+		assert.Nil(t, e.Data)
 	case <-timer.C:
 		println("no event")
 	}
