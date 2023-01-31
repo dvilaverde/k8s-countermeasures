@@ -30,8 +30,8 @@ The Kubernetes CounterMeasures operator automatically detects changes
 in the Kubernetes API server to any of the above objects, and ensures
 your the monitors are updated.
 
-To learn more about the CRDs introduced by the Prometheus Operator have a look
-at the [actions doc](docs/actions.md).
+To learn more about the CRDs introduced by the Kubernetes CounterMeasures Operator
+have a look at the [documentation](docs/actions.md).
 
 ## Dynamic Admission Control
 
@@ -43,11 +43,11 @@ For more information on this feature, see the [user guide](docs/webhook.md).
 
 ## Quickstart
 
-To quickly try out *just* the Kubernetes CounterMeasures Operator inside a cluster,
+To quickly try out the Kubernetes CounterMeasures Operator inside a cluster,
 run the following command:
 
 ```bash
-TODO: install instructions here
+TODO: install instructions here!
 ```
 
 To run the Operator outside of a cluster:
@@ -71,16 +71,16 @@ done
 After a couple of minutes you can go ahead and remove the operator itself.
 
 ```bash
-TODO: delete instructions here
+TODO: delete instructions here!
 ```
 
 ## Development
 
 ### Prerequisites
 
-- golang environment
-- docker (used for creating container images, etc.)
-- kind (optional)
+* golang environment
+* docker (used for creating container images, etc.)
+* kind (optional)
 
 ### Testing
 

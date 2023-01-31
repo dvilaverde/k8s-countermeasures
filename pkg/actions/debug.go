@@ -80,7 +80,7 @@ func (d *Debug) Perform(ctx context.Context, event events.Event) error {
 				EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 					Name:                     name,
 					Image:                    d.spec.Image,
-					ImagePullPolicy:          corev1.PullIfNotPresent,
+					ImagePullPolicy:          corev1.PullAlways,
 					Command:                  d.spec.Command,
 					Args:                     d.spec.Args,
 					Stdin:                    d.spec.StdIn,
