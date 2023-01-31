@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -42,7 +43,7 @@ import (
 	eventsource "github.com/dvilaverde/k8s-countermeasures/controllers/eventsource"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/actions"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
-	"github.com/dvilaverde/k8s-countermeasures/pkg/producers"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/producer"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/reconciler"
 	"github.com/operator-framework/operator-lib/leader"
 	//+kubebuilder:scaffold:imports
@@ -53,7 +54,7 @@ const watchNamespaceEnvVar = "WATCH_NAMESPACE"
 var (
 	scheme         = runtime.NewScheme()
 	setupLog       = ctrl.Log.WithName("setup")
-	ErrNoNamespace = fmt.Errorf("namespace not found for current environment")
+	ErrNoNamespace = errors.New("namespace not found for current environment")
 )
 
 func init() {
@@ -141,33 +142,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	// dispatch will be started by the controller runtime and will receive events from an
-	// event source and dispatch them to the action manager which implements the listener
-	// interface.
-	actionManager := actions.NewFromManager(mgr)
-	bus := eventbus.NewEventBus(actionManager, rt.NumCPU())
+	// EventBus will be started by the controller runtime and will receive events from an
+	// the event producers and dispatch them to the subscribers registered with the action
+	// manager.
+	bus := eventbus.NewEventBus(rt.NumCPU())
 	mgr.Add(bus)
+	consumerMgr := actions.NewFromManager(mgr, bus)
 
 	cmr := &countermeasure.CounterMeasureReconciler{
-		ReconcilerBase: reconciler.NewFromManager(mgr),
-		ActionManager:  actionManager,
-		Log:            ctrl.Log.WithName("controllers").WithName("countermeasure"),
+		ReconcilerBase:  reconciler.NewFromManager(mgr),
+		ConsumerManager: consumerMgr,
+		Log:             ctrl.Log.WithName("controllers").WithName("countermeasure"),
 	}
 	if err = (cmr).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create countermeasure controller")
 		os.Exit(1)
 	}
 
-	sourceManager := &producers.Manager{
-		EventBus: bus,
-	}
+	producersManager := producer.NewManager(bus)
 	// the source manager is a operator manager because it will be listening to the
 	// done channel in order to stop any running event sources.
-	mgr.Add(sourceManager)
+	mgr.Add(producersManager)
 	if err = (&eventsource.PrometheusReconciler{
 		ReconcilerBase: reconciler.NewFromManager(mgr),
-		SourceManager:  sourceManager,
-	}).SetupWithManager(mgr); err != nil {
+		Producers:      producersManager,
+	}).SetupWithManager(mgr, bus); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Prometheus")
 		os.Exit(1)
 	}

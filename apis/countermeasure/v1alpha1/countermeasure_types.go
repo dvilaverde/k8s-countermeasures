@@ -114,7 +114,7 @@ func (o *ObjectReference) ToGroupVersionKind() (schema.GroupVersionKind, error) 
 type Action struct {
 	Name string `json:"name"`
 	// +kubebuilder:default=true
-	RetryEnabled bool `json:"retryEnabled"`
+	RetryEnabled bool `json:"retryEnabled,omitempty"`
 
 	// TODO: Add the following low-level operations:
 	// Create *CreateSpec `json:"create,omitempty"`

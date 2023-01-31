@@ -37,8 +37,8 @@ import (
 // CounterMeasureReconciler reconciles a CounterMeasure object
 type CounterMeasureReconciler struct {
 	reconciler.ReconcilerBase
-	ActionManager manager.Manager[*v1alpha1.CounterMeasure]
-	Log           logr.Logger
+	ConsumerManager manager.Manager[*v1alpha1.CounterMeasure]
+	Log             logr.Logger
 }
 
 // Refer to the following URL for the K8s API groups:
@@ -73,7 +73,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			// stop reconciliation since the Operator Custom Resource was not found
 			logger.Info("CounterMeasure resource not found", "name", req.Name, "namespace", req.Namespace)
 			// Notify the monitoring service to stop monitoring the NamespaceName
-			r.ActionManager.Remove(req.NamespacedName)
+			r.ConsumerManager.Remove(req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
 
@@ -82,7 +82,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	if r.ActionManager.Exists(counterMeasureCR.ObjectMeta) {
+	if r.ConsumerManager.Exists(counterMeasureCR.ObjectMeta) {
 		return r.HandleSuccess(ctx, counterMeasureCR.ObjectMeta)
 	}
 
@@ -100,7 +100,7 @@ func (r *CounterMeasureReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return r.HandleError(ctx, counterMeasureCR.ObjectMeta, err)
 	}
 
-	err = r.ActionManager.Add(counterMeasureCR)
+	err = r.ConsumerManager.Add(counterMeasureCR)
 	if err != nil {
 		return r.HandleError(ctx, counterMeasureCR.ObjectMeta, err)
 	}

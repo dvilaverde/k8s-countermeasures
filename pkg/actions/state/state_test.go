@@ -32,12 +32,11 @@ func TestActionState_IsRunning(t *testing.T) {
 		},
 	}
 
-	state.Add(cm, nil)
+	state.Add(cm)
 
 	event := events.Event{
 		Name:       "event1",
 		ActiveTime: time.Now(),
-		Source:     events.SourceName{Namespace: "ns", Name: "prometheus"},
 		Data:       &events.EventData{},
 	}
 	state.CounterMeasureStart(event, key)
@@ -63,11 +62,11 @@ func TestActionState_IsDeployed(t *testing.T) {
 		},
 	}
 
-	state.Add(cm, nil)
+	state.Add(cm)
 	assert.True(t, state.IsDeployed(key))
 }
 
-func TestActionState_AddSources(t *testing.T) {
+func TestActionState_Add(t *testing.T) {
 	state := NewState()
 
 	key := Key()
@@ -86,17 +85,11 @@ func TestActionState_AddSources(t *testing.T) {
 		},
 	}
 
-	source := manager.ObjectKey{
-		NamespacedName: types.NamespacedName{Namespace: "sourceNs", Name: "sourceA"},
-		Generation:     5,
-	}
-	state.Add(cm, []manager.ObjectKey{source})
+	state.Add(cm)
 
-	assert.Equal(t, 1, len(state.counterMeasures[key].Sources))
-
-	entry := state.GetCounterMeasures("event1")[0]
-	_, ok := entry.Sources[events.SourceName(source.NamespacedName)]
-	assert.True(t, ok)
+	entry := state.GetCounterMeasure(manager.ToKey(cm.ObjectMeta))
+	assert.False(t, entry.running)
+	assert.Equal(t, "event1", entry.Name)
 }
 
 func TestActionState_Remove(t *testing.T) {
@@ -118,13 +111,13 @@ func TestActionState_Remove(t *testing.T) {
 		},
 	}
 
-	state.Add(cm, nil)
+	state.Add(cm)
 	assert.True(t, state.IsDeployed(key))
 	state.Remove(key.NamespacedName)
 	assert.False(t, state.IsDeployed(key))
 }
 
-func TestActionState_GetCounterMeasures(t *testing.T) {
+func TestActionState_GetCounterMeasure(t *testing.T) {
 
 	state := NewState()
 
@@ -145,10 +138,9 @@ func TestActionState_GetCounterMeasures(t *testing.T) {
 			},
 		}
 
-		state.Add(cm, nil)
+		state.Add(cm)
+		assert.NotNil(t, state.GetCounterMeasure(manager.ToKey(cm.ObjectMeta)))
 	}
-
-	assert.Equal(t, 5, len(state.GetCounterMeasures("event1")))
 }
 
 func TestActionState_CounterMeasureEvents(t *testing.T) {
@@ -175,22 +167,19 @@ func TestActionState_CounterMeasureEvents(t *testing.T) {
 		},
 	}
 
-	state.Add(cm, nil)
+	state.Add(cm)
 	assert.True(t, state.IsDeployed(key))
 
 	event := events.Event{
 		Name:       "event1",
 		ActiveTime: time.Now(),
-		Source:     events.SourceName{Namespace: "ns", Name: "prometheus"},
 		Data:       &events.EventData{},
 	}
 
-	entry := state.GetCounterMeasures("event1")[0]
-	assert.True(t, entry.Accept(event))
+	entry := state.GetCounterMeasure(manager.ToKey(cm.ObjectMeta))
 	state.CounterMeasureStart(event, key)
 	assert.True(t, entry.IsSuppressed(event))
 	state.CounterMeasureEnd(event, key)
-	assert.True(t, entry.Accept(event))
 
 	// should still be suppressed since we have a 10 second suppression policy
 	assert.True(t, entry.IsSuppressed(event))
