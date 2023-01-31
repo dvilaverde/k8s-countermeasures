@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1alpha1 "github.com/dvilaverde/k8s-countermeasures/apis/eventsource/v1alpha1"
+	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/producer"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/producer/prometheus"
@@ -42,6 +43,7 @@ import (
 type PrometheusReconciler struct {
 	reconciler.ReconcilerBase
 	Producers manager.Manager[producer.KeyedEventProducer]
+	eventBus  *eventbus.EventBus
 	Log       logr.Logger
 }
 
@@ -96,8 +98,7 @@ func (r *PrometheusReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			Client:         client,
 		}
 
-		var eventProducer producer.EventProducer // TODO nees impl
-		err = r.Producers.Add(prometheus.NewEventProducer(config, eventProducer))
+		err = r.Producers.Add(prometheus.NewEventProducer(config, r.eventBus))
 		return r.HandleOutcome(ctx, eventSourceCR.ObjectMeta, err)
 	}
 
@@ -105,9 +106,10 @@ func (r *PrometheusReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *PrometheusReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *PrometheusReconciler) SetupWithManager(mgr ctrl.Manager, bus *eventbus.EventBus) error {
 	r.OnError = r.HandleErrorAndRequeue
 	r.OnSuccess = r.HandleSuccess
+	r.eventBus = bus
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Prometheus{}).

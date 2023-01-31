@@ -2,6 +2,7 @@ package prometheus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,16 +12,7 @@ import (
 	"github.com/prometheus/common/config"
 )
 
-type AlertNotFiring struct {
-	msg string
-}
-
-func (nf *AlertNotFiring) Error() string {
-	if len(nf.msg) == 0 {
-		return "alert not firing"
-	}
-	return nf.msg
-}
+var ErrAlertNotFiring = errors.New("alerts are not firing (or pending)")
 
 type PrometheusService struct {
 	p8sApi v1.API
@@ -61,7 +53,7 @@ func NewPrometheusClient(address, username, password string) (*PrometheusService
 func (r *AlertQueryResult) ToEvents(includePending bool) ([]events.Event, error) {
 	foundAlerts := r.findActiveAlert(includePending)
 	if len(foundAlerts) == 0 {
-		return nil, &AlertNotFiring{msg: "alerts are not firing (or pending)"}
+		return nil, ErrAlertNotFiring
 	}
 
 	eventsArr := make([]events.Event, len(foundAlerts))

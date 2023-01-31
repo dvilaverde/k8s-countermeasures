@@ -69,7 +69,7 @@ func (d *EventProducer) poll() {
 	}
 
 	eventsToPublish, err := alerts.ToEvents(d.config.IncludePending)
-	if (err != nil && !errors.Is(err, &AlertNotFiring{})) {
+	if err != nil && !errors.Is(err, ErrAlertNotFiring) {
 		utilruntime.HandleError(err)
 		return
 	}
@@ -80,7 +80,9 @@ func (d *EventProducer) poll() {
 	}
 
 	for _, event := range eventsToPublish {
-		if err := d.Publish(event.Name, event); err != nil {
+		name := d.getName()
+		topic := events.CreateFullyQualifiedTopicName(event.Name, name)
+		if err := d.Publish(topic, event); err != nil {
 			prometheusLogger.Error(err, fmt.Sprintf("failed to publish event %v", event.Name))
 		}
 	}

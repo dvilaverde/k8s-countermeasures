@@ -34,7 +34,7 @@ type EventConsumer struct {
 var _ Consumer = EventConsumer{}
 
 type EventConsumerSet struct {
-	consumers []EventConsumer
+	consumers []Consumer
 	mergedCh  chan events.Event
 }
 
@@ -58,11 +58,28 @@ func NewConsumer(bus *EventBus, topic string, consumerCh chan events.Event) Cons
 	}
 }
 
-func MergeConsumers(consumers ...EventConsumer) Consumer {
-	consumerSlice := make([]EventConsumer, len(consumers))
+func MergeConsumers(consumers ...Consumer) Consumer {
+	consumerSlice := make([]Consumer, 0, len(consumers))
 	consumerSlice = append(consumerSlice, consumers...)
 
 	merged := make(chan events.Event)
+
+	chs := make([]<-chan events.Event, 0, len(consumerSlice))
+	for _, c := range consumerSlice {
+		chs = append(chs, c.OnEvent())
+	}
+
+	go func(outCh chan<- events.Event, inputCh []<-chan events.Event) {
+		ok := true
+		for ok {
+			event, err := Merge(context.Background(), chs)
+			if err != nil {
+				ok = !errors.Is(err, ErrChannelClosed)
+				utilruntime.HandleError(err)
+			}
+			outCh <- event
+		}
+	}(merged, chs)
 
 	return EventConsumerSet{
 		consumers: consumerSlice,
@@ -93,14 +110,21 @@ func (c EventConsumer) UnSubscribe() error {
 }
 
 func (c EventConsumerSet) Id() string {
-	return "" // todo: needs id
+	var sb strings.Builder
+	for _, con := range c.consumers {
+		sb.WriteString(con.Id())
+	}
+
+	h := fnv.New32a()
+	h.Write([]byte(sb.String()))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func (cs EventConsumerSet) OnEventSync(ctx context.Context) events.Event {
-	chs := make([]chan events.Event, len(cs.consumers))
+	chs := make([]<-chan events.Event, len(cs.consumers))
 
 	for _, c := range cs.consumers {
-		chs = append(chs, c.eventChannel)
+		chs = append(chs, c.OnEvent())
 	}
 
 	event, err := Merge(ctx, chs)
@@ -112,26 +136,6 @@ func (cs EventConsumerSet) OnEventSync(ctx context.Context) events.Event {
 }
 
 func (cs EventConsumerSet) OnEvent() <-chan events.Event {
-
-	if cs.mergedCh == nil {
-		chs := make([]chan events.Event, len(cs.consumers))
-		for _, c := range cs.consumers {
-			chs = append(chs, c.eventChannel)
-		}
-
-		go func(outCh chan<- events.Event, inputCh []chan events.Event) {
-			ok := true
-			for ok {
-				event, err := Merge(context.Background(), chs)
-				if err != nil {
-					ok = !errors.Is(err, ErrChannelClosed)
-					utilruntime.HandleError(err)
-				}
-				outCh <- event
-			}
-		}(cs.mergedCh, chs)
-	}
-
 	return cs.mergedCh
 }
 
@@ -146,7 +150,7 @@ func (cs EventConsumerSet) UnSubscribe() error {
 	return nil
 }
 
-func Merge[T any](ctx context.Context, chs []chan T) (T, error) {
+func Merge[T any](ctx context.Context, chs []<-chan T) (T, error) {
 	var msg T
 	cases := make([]reflect.SelectCase, len(chs)+1)
 

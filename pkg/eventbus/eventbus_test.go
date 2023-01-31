@@ -3,14 +3,25 @@ package eventbus
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
+	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
+
+func TestMain(m *testing.M) {
+	// disable the k8s.io/apimachinery runtime error handlers for the
+	// tests we're intentionally causing retries and errors on to reduce noise
+	utilruntime.ErrorHandlers = make([]func(error), 0)
+	code := m.Run()
+	os.Exit(code)
+}
 
 func TestDispatcher_Subscribe(t *testing.T) {
 
@@ -36,9 +47,9 @@ func TestDispatcher_Subscribe(t *testing.T) {
 
 	bus.Publish("e1", e1)
 
-	bus.consumersMux.Lock()
-	assert.Equal(t, 1, len(bus.consumers))
-	bus.consumersMux.Unlock()
+	bus.subscribersMux.Lock()
+	assert.Equal(t, 1, len(bus.subscribers))
+	bus.subscribersMux.Unlock()
 
 	event := consumer.OnEventSync(context.TODO())
 	assert.Equal(t, e1.Name, event.Name)
@@ -103,7 +114,7 @@ func TestDispatcher_UnSubscribe(t *testing.T) {
 func TestDispatcher_SubscribeRetry(t *testing.T) {
 
 	bus := NewEventBus(1)
-	bus.InjectLogger(testr.New(t))
+	bus.InjectLogger(logr.Discard())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -148,7 +159,7 @@ func TestDispatcher_SubscribeRetry(t *testing.T) {
 
 func TestDispatcher_SubscribeError(t *testing.T) {
 	bus := NewEventBus(1)
-	bus.InjectLogger(testr.New(t))
+	bus.InjectLogger(logr.Discard())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

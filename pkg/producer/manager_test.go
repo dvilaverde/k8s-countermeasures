@@ -58,7 +58,7 @@ func getManager(t *testing.T) *Manager {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	go mgr.Start(ctx)
-	mgr.eventBus.Start(ctx)
+	go mgr.eventBus.Start(ctx)
 
 	assert.Eventually(t, func() bool {
 		mgr.producersMux.Lock()

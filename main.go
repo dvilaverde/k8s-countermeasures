@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -53,7 +54,7 @@ const watchNamespaceEnvVar = "WATCH_NAMESPACE"
 var (
 	scheme         = runtime.NewScheme()
 	setupLog       = ctrl.Log.WithName("setup")
-	ErrNoNamespace = fmt.Errorf("namespace not found for current environment")
+	ErrNoNamespace = errors.New("namespace not found for current environment")
 )
 
 func init() {
@@ -165,7 +166,7 @@ func main() {
 	if err = (&eventsource.PrometheusReconciler{
 		ReconcilerBase: reconciler.NewFromManager(mgr),
 		Producers:      producersManager,
-	}).SetupWithManager(mgr); err != nil {
+	}).SetupWithManager(mgr, bus); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Prometheus")
 		os.Exit(1)
 	}
