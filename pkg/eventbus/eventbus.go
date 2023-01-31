@@ -20,15 +20,17 @@ type message struct {
 	topic string
 }
 
+type Subscribers map[string][]chan events.Event
+
 type EventBus struct {
 	logger             logr.Logger
 	workerShutdownChan chan struct{}
 	workqueue          workqueue.RateLimitingInterface
 	workers            int
 
-	// map of topics to consumers
-	consumersMux sync.RWMutex
-	consumers    map[string][]EventConsumer
+	// map of topics to subscribers
+	subscribersMux sync.RWMutex
+	subscribers    Subscribers
 }
 
 func NewRateLimiter() workqueue.RateLimiter {
@@ -44,8 +46,8 @@ func NewEventBus(workers int) *EventBus {
 	return &EventBus{
 		workers:            workers,
 		workerShutdownChan: make(chan struct{}),
-		consumersMux:       sync.RWMutex{},
-		consumers:          make(map[string][]EventConsumer),
+		subscribersMux:     sync.RWMutex{},
+		subscribers:        make(Subscribers),
 		workqueue:          workqueue.NewNamedRateLimitingQueue(NewRateLimiter(), "EventDispatcher"),
 	}
 }
@@ -65,15 +67,16 @@ func (d *EventBus) Start(ctx context.Context) error {
 
 	d.workqueue.ShutDownWithDrain()
 
-	d.consumersMux.RLock()
-	defer d.consumersMux.RUnlock()
+	d.subscribersMux.RLock()
+	defer d.subscribersMux.RUnlock()
 
 	// class all the EventConsumer channels
-	for _, consumers := range d.consumers {
-		for _, consumer := range consumers {
-			close(consumer.eventChannel)
+	for _, subscribersSlice := range d.subscribers {
+		for _, consumer := range subscribersSlice {
+			close(consumer)
 		}
 	}
+	d.subscribers = make(Subscribers)
 
 	d.workerShutdownChan <- struct{}{}
 
@@ -90,24 +93,26 @@ func (d *EventBus) Publish(topic string, event events.Event) error {
 }
 
 // Subscribe registers a subscription on the topic
-func (d *EventBus) Subscribe(topic string) (EventConsumer, error) {
-	d.consumersMux.Lock()
-	defer d.consumersMux.Unlock()
+func (d *EventBus) Subscribe(topic string) (Consumer, error) {
+	d.subscribersMux.Lock()
+	defer d.subscribersMux.Unlock()
 
-	consumer := NewConsumer(d, topic)
-	d.consumers[topic] = append(d.consumers[topic], consumer)
+	consumerCh := make(chan events.Event, CONSUMER_BUFFER_SIZE)
+	consumer := NewConsumer(d, topic, consumerCh)
+	d.subscribers[topic] = append(d.subscribers[topic], consumerCh)
 
 	return consumer, nil
 }
 
-func (d *EventBus) unsubscribe(consumer EventConsumer) error {
-	d.consumersMux.Lock()
-	defer d.consumersMux.Unlock()
+func (d *EventBus) unsubscribe(topic string, ch chan events.Event) error {
+	d.subscribersMux.Lock()
+	defer d.subscribersMux.Unlock()
 
-	subscribers := d.consumers[consumer.topic]
+	subscribers := d.subscribers[topic]
 	for idx, c := range subscribers {
-		if c.consumerId == consumer.consumerId {
-			d.consumers[consumer.topic] = append(subscribers[:idx], subscribers[idx+1:]...)
+		if ch == c {
+			d.subscribers[topic] = append(subscribers[:idx], subscribers[idx+1:]...)
+			defer close(ch)
 			break
 		}
 	}
@@ -156,22 +161,29 @@ func (d *EventBus) processNextWorkItem() bool {
 		}
 
 		// Notify the subscribers about the event
-		d.consumersMux.RLock()
-		defer d.consumersMux.RUnlock()
+		d.subscribersMux.RLock()
+		defer d.subscribersMux.RUnlock()
 
-		for _, consumer := range d.consumers[m.topic] {
-			select {
-			case consumer.eventChannel <- m.event:
-			default:
-				// Put the item back on the workqueue to handle any transient errors.
-				d.workqueue.AddRateLimited(m)
-				return fmt.Errorf("consumer '%s' not ready for event '%s', requeuing", consumer.consumerId, m.event.Key())
+		subscribers, ok := SubscriberMatch(d.subscribers, m.topic)
+
+		if ok {
+			for _, consumer := range subscribers {
+				select {
+				case consumer <- m.event:
+				default:
+					// Put the item back on the workqueue to handle any transient errors.
+					d.workqueue.AddRateLimited(m)
+					return fmt.Errorf("consumer not ready for event '%s', requeuing", m.event.Key())
+				}
 			}
+
+			d.logger.Info(fmt.Sprintf("Event successfully delivered '%s to %d subscribers",
+				m.event.Key(),
+				len(subscribers)))
 		}
 
 		// Finally, if no error occurs we Forget this item so it does not get queued again.
 		d.workqueue.Forget(obj)
-		d.logger.Info(fmt.Sprintf("Event successfully delivered '%s'", m.event.Key()))
 		return nil
 	}(msg)
 

@@ -1,4 +1,4 @@
-package producers
+package producer
 
 import (
 	"context"
@@ -9,19 +9,20 @@ import (
 	"github.com/dvilaverde/k8s-countermeasures/pkg/eventbus"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/events"
 	"github.com/dvilaverde/k8s-countermeasures/pkg/manager"
+	"github.com/go-logr/logr/testr"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var dummySource EventProducer = &DummyEventSource{}
+var dummySource KeyedEventProducer = &DummyEventSource{}
 
 func TestManager_Remove(t *testing.T) {
 	mgr := getManager(t)
 	assert.NotNil(t, mgr)
 
 	mgr.Remove(dummySource.Key().NamespacedName)
-	assert.Equal(t, 0, len(mgr.sources))
+	assert.Equal(t, 0, len(mgr.producers))
 }
 
 func TestManager_Exists(t *testing.T) {
@@ -49,23 +50,24 @@ func TestManager_Add(t *testing.T) {
 
 func getManager(t *testing.T) *Manager {
 	mgr := &Manager{
-		EventBus: eventbus.NewEventBus(events.OnEventFunc(func(e events.Event) error {
-			return nil
-		}), 1),
+		eventBus:  eventbus.NewEventBus(1),
+		producers: make(map[manager.ObjectKey]KeyedEventProducer),
 	}
+	mgr.eventBus.InjectLogger(testr.New(t))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	go mgr.Start(ctx)
+	go mgr.eventBus.Start(ctx)
 
 	assert.Eventually(t, func() bool {
-		mgr.sourcesMux.Lock()
-		defer mgr.sourcesMux.Unlock()
-		return mgr.sources != nil
-	}, time.Second, time.Millisecond*10, "expecting that the sources map to be initialized")
+		mgr.producersMux.Lock()
+		defer mgr.producersMux.Unlock()
+		return mgr.producers != nil
+	}, time.Second, time.Millisecond*10, "expecting that the producers map to be initialized")
 
 	mgr.Add(dummySource)
-	assert.Equal(t, 1, len(mgr.sources))
+	assert.Equal(t, 1, len(mgr.producers))
 	return mgr
 }
 
@@ -79,11 +81,11 @@ func (d *DummyEventSource) Key() manager.ObjectKey {
 	}
 }
 
-func (d *DummyEventSource) Start(ch <-chan struct{}) error {
-	<-ch
+func (d *DummyEventSource) Publish(string, events.Event) error {
 	return nil
 }
 
-func (d *DummyEventSource) Subscribe(_ events.EventListener) error {
+func (d *DummyEventSource) Start(ch <-chan struct{}) error {
+	<-ch
 	return nil
 }

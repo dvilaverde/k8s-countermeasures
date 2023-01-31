@@ -176,7 +176,9 @@ func (seq InMemoryRunner) Run(eventCtx ActionContext, event events.Event) {
 
 		// Ideally actions are idempotent as retry on error is the default behavior,
 		// but the action spec allows for retries to be disabled.
-		err := retry.OnError(retry.DefaultBackoff, func(err error) bool { return true }, func() error {
+		err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
+			return action.SupportsRetry()
+		}, func() error {
 			return action.Perform(ctx, event)
 		})
 

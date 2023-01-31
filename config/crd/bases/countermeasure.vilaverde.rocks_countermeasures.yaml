@@ -178,7 +178,6 @@ spec:
                       type: boolean
                   required:
                   - name
-                  - retryEnabled
                   type: object
                 type: array
               dryRun:
