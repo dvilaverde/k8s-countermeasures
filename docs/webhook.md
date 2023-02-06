@@ -22,5 +22,3 @@ It is recommended to use [cert-manager](https://cert-manager.io/)
 which manages both the lifecycle of the TLS certificates and the integration
 with the Kubernetes API with respect to the webhook configuration (e.g.
 automatic injection of the CA bundle).
-
-TODO: document enabling admission webhook.

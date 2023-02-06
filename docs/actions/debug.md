@@ -16,7 +16,7 @@ kubectl debug -i --arguments-only \
 
 ## Uses Cases
 
-* Collection debug information for containers that may experience intermittent
+* Collect debug information for containers that may experience intermittent
 issues and don't package debugging tools for production images.
   * Use JDK debug image to collect thread dumps or heap dumps from container
   running JREs.
@@ -48,6 +48,8 @@ spec:
         container: main
 ```
 
+The following properties are allowed under `debug`:
+
 * `name`: The name to use for the ephemeral container. If not provided the operator
 will generate a unique name. If a name is provided and the debug action is executed
 on the same pod more than once, then the subsequent exection will take no action.
@@ -64,28 +66,5 @@ on the same pod more than once, then the subsequent exection will take no action
 ## Templating
 
 The properties of `podRef` can include [Golang templates](https://pkg.go.dev/text/template)
-to be applied against the Event data structure. For example given this event:
-
-```json
-{
-    "Name": "HighCpuAlert",
-    "ActiveTime": "2022-11-14 02:45:16 +0000 UTC",
-    "Data": {
-        "pod": "hello-world-app-szdfh",
-        "namespace": "my-team-ns"
-    },
-    "Source": {
-        "Name": "prom-operated",
-        "Namespace" "monitoring-ns"
-    }
-}
-```
-
-the `podRef` from the specification example would evaluate to:
-
-```yaml
-podRef: 
-  name: hello-world-app-szdfh
-  namespace: my-team-ns
-  container: main
-```
+to be applied against the Event data structure. See the [templating](templating.md)
+more details.
