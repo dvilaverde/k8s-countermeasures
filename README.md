@@ -5,7 +5,31 @@
 **Project status: *alpha*** Not all planned features are completed. The API, spec,
 status and other user facing objects may change, but in a backward compatible way.
 
+Packaging scripts and instructions for deployment are still in progress
+and looking for contributors.
+
 ## Overview
+
+This project aims to define a API and controller in Kubernetes to codify
+project runbooks, allowing for automation of actions that are manually
+taken when on on-call engineer receives an alert.
+
+For example, imagine a Java application with a runbook that defines when an alert
+for high CPU is received, the on-call engineer is to take a thread-dump for analysis.
+Doing this manually may prove difficult depending on how long the high CPU event
+lasts and the engineer availability, and whether or not the
+container has the debug tools required.
+
+This project allows for the automation of the above runbook task by using an operator
+written using the [OperatorSDK](https://sdk.operatorframework.io) and a few CRDs
+to define the `event` to monitor and the `actions` to take.
+
+The operator allows for deployment of an event source, currently only Prometheus
+is supported, and a countermeasure that defines one or more actions. The event source
+will publish events into an internal event bus to be conssumed by the countermeasures.
+
+For more detailed instructions and [examples](config/samples/) see the [README](docs/README.md) in
+the [docs](docs) folder.
 
 ## Prerequisites
 
@@ -36,25 +60,25 @@ have a look at the [documentation](docs/actions.md).
 ## Dynamic Admission Control
 
 To provide validation an [admission webhook](https://kubernetes.io/docs/reference/access-authn-authz/extensible-admission-controllers/)
-is provided to validate `CounterMeasure` resources upon initial creation or update
+is provided to validate CRD resources upon initial creation or update
 or during dry run.
 
 For more information on this feature, see the [user guide](docs/webhook.md).
 
 ## Quickstart
 
-To quickly try out the Kubernetes CounterMeasures Operator inside a cluster,
-run the following command:
-
-```bash
-TODO: install instructions here!
-```
-
-To run the Operator outside of a cluster:
+To quickly try out the Kubernetes CounterMeasures Operator inside a [Kind](https://kind.sigs.k8s.io)
+cluster, run the following command:
 
 ```bash
 ./hack/start-cluster.sh
 make install
+make deploy
+```
+
+To run the Operator outside of a cluster instead of running `make deploy`, use:
+
+```bash
 make run
 ```
 
@@ -71,7 +95,8 @@ done
 After a couple of minutes you can go ahead and remove the operator itself.
 
 ```bash
-TODO: delete instructions here!
+make undeploy
+make uninstall
 ```
 
 ## Development
