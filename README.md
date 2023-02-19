@@ -8,6 +8,17 @@ status and other user facing objects may change, but in a backward compatible wa
 Packaging scripts and instructions for deployment are still in progress
 and looking for contributors.
 
+## TL;DR
+
+Kubernetes Operator which allows for automating manual actions, normally documeneted in applcation runbooks and executed 
+by Ops or SRE staff, in reaction to an application alert. Simple examples include:
+
+* deleting/restarting a pod on application error that doesn't cause liveness/readiness probes to restart
+* taking a Java thread-dump or enabling profiler such as async-profiler on high CPU usage alert
+
+For more detailed [examples](config/samples/) and use cases see the [README](docs/README.md) in
+the [docs](docs) folder.
+
 ## Overview
 
 This project aims to define a API and controller in Kubernetes to codify
@@ -27,9 +38,6 @@ to define the `event` to monitor and the `actions` to take.
 The operator allows for deployment of an event source, currently only Prometheus
 is supported, and a countermeasure that defines one or more actions. The event source
 will publish events into an internal event bus to be conssumed by the countermeasures.
-
-For more detailed instructions and [examples](config/samples/) see the [README](docs/README.md) in
-the [docs](docs) folder.
 
 ## Prerequisites
 
